@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user, require_role
@@ -27,13 +27,35 @@ class AuditLogOut(BaseModel):
     """Запись аудит-лога (ответ API)."""
     id: uuid.UUID
     admin_id: uuid.UUID
+    admin_name: str = ""
     action: str
     target_type: str
     target_id: uuid.UUID | None
+    target_name: str | None = None
     details: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_admin_name(cls, data):
+        """Извлекаем имя администратора и цели из связанных ORM объектов."""
+        if not isinstance(data, dict):
+            admin = getattr(data, 'admin', None)
+            target = getattr(data, 'target_user', None)
+            return {
+                "id": data.id,
+                "admin_id": data.admin_id,
+                "action": data.action,
+                "target_type": data.target_type,
+                "target_id": data.target_id,
+                "details": data.details,
+                "created_at": data.created_at,
+                "admin_name": admin.name if admin else "",
+                "target_name": target.name if target and data.target_type == "user" else None,
+            }
+        return data
 
 
 class PaginatedAuditLogs(BaseModel):

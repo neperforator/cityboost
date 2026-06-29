@@ -5,13 +5,18 @@ API-роуты для аутентификации.
 
 from __future__ import annotations
 
+import uuid
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user
+from src.config import settings
 from src.auth.models import User
 from src.auth.schemas import (
     ForgotPasswordRequest,
+    RefreshRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserLoginRequest,
@@ -52,13 +57,13 @@ async def register(
     "/login",
     response_model=TokenResponse,
     summary="Вход в систему",
-    description="Аутентификация по email и паролю. Возвращает JWT access token.",
+    description="Аутентификация по email и паролю. Возвращает access и refresh токены.",
 )
 async def login(
     data: UserLoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Аутентифицировать пользователя и вернуть JWT токен."""
+    """Аутентифицировать пользователя и вернуть токены."""
     service = AuthService(db)
     user = await service.authenticate(data.email, data.password)
     if not user:
@@ -66,10 +71,105 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email, пароль или аккаунт заблокирован",
         )
-    token = service.create_access_token(
+
+    access_token = service.create_access_token(
         data={"sub": str(user.id), "role": user.role.value},
     )
-    return TokenResponse(access_token=token)
+    refresh_token = service.create_raw_refresh_token(user.id)
+    user.refresh_token_hash = service.hash_refresh_token(refresh_token)
+    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(
+        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
+    )
+    await db.flush()
+
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@auth_router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Обновить access токен",
+    description="Принимает refresh токен, проверяет его и возвращает новую пару токенов.",
+)
+async def refresh(
+    data: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Обновить access токен по refresh токену (ротация)."""
+    service = AuthService(db)
+
+    # Декодируем JWT refresh
+    payload = service.decode_refresh_token(data.refresh_token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh токен",
+        )
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh токен",
+        )
+
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh токен",
+        )
+
+    # Находим пользователя
+    from src.auth.repository import UserRepository
+    repo = UserRepository()
+    user = await repo.get_by_id(db, uid)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Пользователь не найден",
+        )
+
+    # Проверяем хеш refresh токена в БД
+    if user.refresh_token_hash is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh токен не найден в системе",
+        )
+
+    if not service.verify_refresh_token_hash(data.refresh_token, user.refresh_token_hash):
+        # Несовпадение — возможна кража токена → аннулируем все refresh токены пользователя
+        user.refresh_token_hash = None
+        user.refresh_token_expires = None
+        await db.flush()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh токен (возможна кража токена)",
+        )
+
+    # Проверяем срок действия в БД (на случай, если мы захотели принудительно завершить сессию)
+    if user.refresh_token_expires and user.refresh_token_expires < datetime.now(timezone.utc):
+        user.refresh_token_hash = None
+        user.refresh_token_expires = None
+        await db.flush()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh токен истёк",
+        )
+
+    # Ротируем: создаём новую пару, старый хеш заменяем
+    new_access_token = service.create_access_token(
+        data={"sub": str(user.id), "role": user.role.value},
+    )
+    new_refresh_token = service.create_raw_refresh_token(user.id)
+    user.refresh_token_hash = service.hash_refresh_token(new_refresh_token)
+    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(
+        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
+    )
+    await db.flush()
+
+    return TokenResponse(access_token=new_access_token, refresh_token=new_refresh_token)
 
 
 @auth_router.get(

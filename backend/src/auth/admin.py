@@ -33,14 +33,31 @@ admin_user_router = APIRouter(
 )
 async def admin_list_users(
     page: int = Query(1, ge=1, description="Номер страницы"),
-    page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
+    page_size: int = Query(20, ge=1, le=1000, description="Размер страницы"),
     search: str | None = Query(None, description="Поиск по имени или email"),
+    is_banned: bool | None = Query(None, description="Фильтр по блокировке"),
+    role: str | None = Query(None, description="Фильтр по роли (user/admin)"),
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(get_current_user),
 ) -> PaginatedUsers:
-    """Получить список пользователей (пагинированный)."""
-    items, total = await UserRepository.paginated_list(db, page, page_size, search)
+    """Получить список пользователей (пагинированный, с фильтрацией)."""
+    items, total = await UserRepository.paginated_list(
+        db, page, page_size, search, is_banned, role,
+    )
     return PaginatedUsers(items=items, total=total, page=page, page_size=page_size)
+
+
+@admin_user_router.get(
+    "/stats",
+    summary="Статистика пользователей",
+    description="Возвращает общее количество пользователей, админов, обычных пользователей и заблокированных.",
+)
+async def admin_users_stats(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_current_user),
+) -> dict:
+    """Статистика пользователей для карточек фильтров."""
+    return await UserRepository.get_stats(db)
 
 
 @admin_user_router.patch(

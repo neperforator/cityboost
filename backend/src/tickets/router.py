@@ -193,6 +193,8 @@ async def get_ticket(
         latitude=ticket.latitude,
         longitude=ticket.longitude,
         address=ticket.address,
+        user_name=ticket.user.name if ticket.user else "",
+        assigned_to_name=ticket.assignee.name if ticket.assignee else None,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
         files=ticket.files,
@@ -302,4 +304,12 @@ async def add_comment(
             detail="Только автор заявки или администратор может добавлять комментарии",
         )
     comment = await service.add_comment(ticket_id, current_user.id, data.comment_text)
-    return comment
+    return TicketCommentOut(
+        id=comment.id,
+        ticket_id=comment.ticket_id,
+        author_id=comment.author_id,
+        author_name=current_user.name,
+        author_role=current_user.role.value,
+        comment_text=comment.comment_text,
+        created_at=comment.created_at,
+    )

@@ -6,6 +6,7 @@ import type { User } from '@/types'
 interface AuthState {
   user: User | null
   token: string | null
+  refreshToken: string | null
   loading: boolean
 }
 
@@ -13,6 +14,7 @@ export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: JSON.parse(localStorage.getItem('cityboost_user') || 'null'),
     token: localStorage.getItem('cityboost_token') || null,
+    refreshToken: localStorage.getItem('cityboost_refresh') || null,
     loading: false,
   }),
   getters: {
@@ -28,7 +30,9 @@ export const useAuthStore = defineStore('auth', {
       try {
         const data = await authAPI.login(email, password)
         this.token = data.access_token
+        this.refreshToken = data.refresh_token
         localStorage.setItem('cityboost_token', data.access_token)
+        localStorage.setItem('cityboost_refresh', data.refresh_token)
         await this.fetchMe()
         return true
       } catch (err) {
@@ -49,6 +53,21 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
       }
     },
+    async refreshTokens(): Promise<boolean> {
+      const currentRefreshToken = this.refreshToken || localStorage.getItem('cityboost_refresh')
+      if (!currentRefreshToken) return false
+      try {
+        const data = await authAPI.refresh(currentRefreshToken)
+        this.token = data.access_token
+        this.refreshToken = data.refresh_token
+        localStorage.setItem('cityboost_token', data.access_token)
+        localStorage.setItem('cityboost_refresh', data.refresh_token)
+        return true
+      } catch {
+        this.clearAuth()
+        return false
+      }
+    },
     async fetchMe(): Promise<User | null> {
       try {
         const user = await authAPI.me()
@@ -67,7 +86,9 @@ export const useAuthStore = defineStore('auth', {
     clearAuth(): void {
       this.user = null
       this.token = null
+      this.refreshToken = null
       localStorage.removeItem('cityboost_token')
+      localStorage.removeItem('cityboost_refresh')
       localStorage.removeItem('cityboost_user')
     },
   },

@@ -45,9 +45,15 @@ class UserOut(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """Ответ с JWT токеном."""
+    """Ответ с JWT токенами."""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    """Запрос на обновление access токена."""
+    refresh_token: str
 
 
 class PaginatedUsers(BaseModel):

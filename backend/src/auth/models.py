@@ -50,6 +50,12 @@ class User(Base):
     reset_token_expires: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
     )
+    refresh_token_hash: Mapped[str | None] = mapped_column(
+        String(255), nullable=True,
+    )
+    refresh_token_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
 
     # Связи — lazy="select" (загружаются только при обращении)
     tickets = relationship(

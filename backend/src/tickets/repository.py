@@ -21,9 +21,11 @@ class TicketRepository:
         result = await db.execute(
             select(Ticket)
             .options(
+                selectinload(Ticket.user),
+                selectinload(Ticket.assignee),
                 selectinload(Ticket.files),
                 selectinload(Ticket.comments).selectinload(TicketComment.author),
-                selectinload(Ticket.history),
+                selectinload(Ticket.history).selectinload(TicketHistory.changed_by_user),
             )
             .where(Ticket.id == ticket_id),
         )
@@ -97,6 +99,10 @@ class TicketRepository:
         """Получить заявки пользователя с пагинацией и опциональным фильтром по статусу."""
         query = (
             select(Ticket)
+            .options(
+                selectinload(Ticket.user),
+                selectinload(Ticket.assignee),
+            )
             .where(Ticket.user_id == user_id)
             .order_by(Ticket.created_at.desc())
             .offset((page - 1) * page_size)
@@ -126,7 +132,10 @@ class TicketRepository:
         page_size: int = 20,
     ) -> tuple[list[Ticket], int]:
         """Фильтрация заявок по статусу и дате (для админа)."""
-        query = select(Ticket).order_by(Ticket.created_at.desc())
+        query = select(Ticket).options(
+            selectinload(Ticket.user),
+            selectinload(Ticket.assignee),
+        ).order_by(Ticket.created_at.desc())
 
         if status is not None:
             query = query.where(Ticket.status == status)

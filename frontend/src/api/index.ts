@@ -1,10 +1,19 @@
-import axios, { type AxiosError } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment } from '@/types'
+import axios, { type AxiosError, type AxiosResponse } from 'axios'
+import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment, TicketHistoryEntry } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 })
+
+// ---- Silent token refresh ----
+
+let isRefreshing = false
+let pendingRequests: Array<{
+  config: Parameters<typeof api>[0]
+  resolve: (value: AxiosResponse) => void
+  reject: (reason: unknown) => void
+}> = []
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('cityboost_token')
@@ -16,27 +25,89 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err: AxiosError<{ detail?: string; error?: string }>) => {
+  async (err: AxiosError<{ detail?: string; error?: string }>) => {
     const status = err.response?.status
     const detail = err.response?.data?.detail || ''
     const errorText = err.response?.data?.error || detail || err.message || 'Ошибка запроса'
 
+    // Blocked account — immediate logout
     if (status === 403 && detail.includes('заблокирован')) {
-      localStorage.removeItem('cityboost_token')
-      localStorage.removeItem('cityboost_user')
-      window.location.hash = '#/login'
+      clearAuthAndRedirect()
       return Promise.reject(new Error('Ваш аккаунт заблокирован администратором'))
     }
 
-    if (status === 401 && !window.location.hash.startsWith('#/login')) {
-      localStorage.removeItem('cityboost_token')
-      localStorage.removeItem('cityboost_user')
-      window.location.hash = '#/login'
+    // Non-401 or login page — pass through
+    if (status !== 401 || window.location.hash.startsWith('#/login')) {
+      return Promise.reject(new Error(errorText))
     }
 
-    return Promise.reject(new Error(errorText))
+    // Don't try to refresh when the refresh endpoint itself returns 401
+    const requestUrl = err.config?.url || ''
+    if (requestUrl.includes('/auth/refresh')) {
+      clearAuthAndRedirect()
+      return Promise.reject(new Error('Сессия истекла'))
+    }
+
+    // Queue this request while we refresh
+    if (isRefreshing) {
+      return new Promise<AxiosResponse>((resolve, reject) => {
+        pendingRequests.push({ config: err.config!, resolve, reject })
+      })
+    }
+
+    isRefreshing = true
+    const failedConfig = err.config!
+
+    try {
+      const refreshToken = localStorage.getItem('cityboost_refresh')
+      if (!refreshToken) throw new Error('No refresh token')
+
+      const { data } = await axios.post<LoginResponse>('/api/v1/auth/refresh', {
+        refresh_token: refreshToken,
+      })
+
+      // Store new tokens
+      localStorage.setItem('cityboost_token', data.access_token)
+      localStorage.setItem('cityboost_refresh', data.refresh_token)
+
+      // Retry all queued requests
+      const queue = pendingRequests.slice()
+      pendingRequests = []
+      queue.forEach(({ config }) => {
+        config.headers.Authorization = `Bearer ${data.access_token}`
+        api(config).then(r => {
+          const entry = queue.find(e => e.config === config)
+          entry?.resolve(r)
+        }).catch(e => {
+          const entry = queue.find(e => e.config === config)
+          entry?.reject(e)
+        })
+      })
+
+      // Retry the original request
+      failedConfig.headers.Authorization = `Bearer ${data.access_token}`
+      return api(failedConfig)
+    } catch {
+      clearAuthAndRedirect()
+      pendingRequests.forEach(({ reject }) => {
+        reject(new Error('Сессия истекла'))
+      })
+      pendingRequests = []
+      return Promise.reject(new Error('Сессия истекла'))
+    } finally {
+      isRefreshing = false
+    }
   }
 )
+
+function clearAuthAndRedirect() {
+  localStorage.removeItem('cityboost_token')
+  localStorage.removeItem('cityboost_refresh')
+  localStorage.removeItem('cityboost_user')
+  if (!window.location.hash.startsWith('#/login')) {
+    window.location.hash = '#/login'
+  }
+}
 
 export default api
 
@@ -49,6 +120,7 @@ export interface AuthAPI {
   updateProfile(data: Partial<{ name: string; current_password: string; new_password: string }>): Promise<User>
   forgotPassword(email: string): Promise<{ message: string }>
   resetPassword(token: string, password: string): Promise<{ message: string }>
+  refresh(refreshToken: string): Promise<LoginResponse>
 }
 
 export const authAPI: AuthAPI = {
@@ -69,6 +141,9 @@ export const authAPI: AuthAPI = {
   },
   resetPassword(token, password) {
     return api.post('/auth/reset-password', { token, password }).then(r => r.data)
+  },
+  refresh(refreshToken) {
+    return api.post('/auth/refresh', { refresh_token: refreshToken }).then(r => r.data)
   },
 }
 
@@ -115,17 +190,23 @@ export const ticketAPI: TicketAPI = {
 // ---- Users ----
 
 export interface UserAPI {
-  list(page?: number, pageSize?: number, search?: string): Promise<PaginatedResponse<User>>
+  list(page?: number, pageSize?: number, search?: string, is_banned?: boolean, role?: string): Promise<PaginatedResponse<User>>
+  getStats(): Promise<{ total: number; admins: number; users: number; banned: number }>
   changeRole(userId: string, role: string): Promise<User>
   ban(userId: string): Promise<User>
   unban(userId: string): Promise<User>
 }
 
 export const userAPI: UserAPI = {
-  list(page = 1, pageSize = 20, search?: string) {
+  list(page = 1, pageSize = 20, search?: string, is_banned?: boolean, role?: string) {
     let url = `/admin/users?page=${page}&page_size=${pageSize}`
     if (search) url += `&search=${encodeURIComponent(search)}`
+    if (is_banned !== undefined) url += `&is_banned=${is_banned}`
+    if (role) url += `&role=${role}`
     return api.get(url).then(r => r.data)
+  },
+  getStats() {
+    return api.get('/admin/users/stats').then(r => r.data)
   },
   changeRole(userId, role) {
     return api.patch(`/admin/users/${userId}/role?new_role=${role}`).then(r => r.data)
@@ -146,7 +227,7 @@ export interface AdminAPI {
   changeStatus(id: string, status: string): Promise<Ticket>
   assign(id: string): Promise<Ticket>
   addComment(id: string, text: string): Promise<TicketComment>
-  getHistory(id: string): Promise<unknown[]>
+  getHistory(id: string): Promise<TicketHistoryEntry[]>
   getAuditLogs(params?: AuditLogFilters): Promise<PaginatedResponse<AdminActionLog>>
   getStats(): Promise<{ total: number; new: number; in_work: number; done: number; closed: number }>
 }

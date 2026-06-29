@@ -13,7 +13,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, String, Text, func, select
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 
 from src.database import Base
 
@@ -41,6 +41,18 @@ class AdminActionLog(Base):
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True,
+    )
+
+    # Связи (без FK constraints — колонки созданы без них)
+    admin = relationship(
+        "User",
+        foreign_keys="AdminActionLog.admin_id",
+        primaryjoin="AdminActionLog.admin_id == User.id",
+    )
+    target_user = relationship(
+        "User",
+        foreign_keys="AdminActionLog.target_id",
+        primaryjoin="AdminActionLog.target_id == User.id",
     )
 
     def __repr__(self) -> str:
@@ -82,7 +94,10 @@ class AdminLogRepository:
         target_type: str | None = None,
     ) -> tuple[list[AdminActionLog], int]:
         """Получить пагинированный список записей аудит-лога с фильтрацией."""
-        query = select(AdminActionLog).order_by(AdminActionLog.created_at.desc())
+        query = select(AdminActionLog).options(
+            selectinload(AdminActionLog.admin),
+            selectinload(AdminActionLog.target_user),
+        ).order_by(AdminActionLog.created_at.desc())
         count_query = select(func.count()).select_from(AdminActionLog)
 
         if action:

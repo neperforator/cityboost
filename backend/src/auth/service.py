@@ -51,8 +51,38 @@ class AuthService:
         expire = datetime.now(timezone.utc) + (
             expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
         )
-        to_encode.update({"exp": expire})
+        to_encode.update({"exp": expire, "type": "access"})
         return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    @staticmethod
+    def create_raw_refresh_token(user_id: uuid.UUID) -> str:
+        """Создать refresh token (JWT с долгим сроком)."""
+        expire = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+        payload = {"sub": str(user_id), "exp": expire, "type": "refresh"}
+        return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    @staticmethod
+    def decode_refresh_token(token: str) -> dict | None:
+        """Декодировать refresh token. Возвращает payload или None."""
+        try:
+            payload = jwt.decode(
+                token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM],
+            )
+            if payload.get("type") != "refresh":
+                return None
+            return payload
+        except JWTError:
+            return None
+
+    @staticmethod
+    def hash_refresh_token(token: str) -> str:
+        """Захешировать refresh token для хранения в БД."""
+        return pwd_context.hash(token)
+
+    @staticmethod
+    def verify_refresh_token_hash(token: str, hashed: str) -> bool:
+        """Проверить refresh token против хеша в БД."""
+        return pwd_context.verify(token, hashed)
 
     @staticmethod
     def decode_access_token(token: str) -> dict | None:

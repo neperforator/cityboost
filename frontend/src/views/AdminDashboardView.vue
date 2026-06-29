@@ -15,7 +15,7 @@ const PAGE_SIZE = 15
 const router = useRouter()
 const auth = useAuthStore()
 const toast = useToast()
-const { getUserName, getUserDisplay, fetchUsers, loaded } = useUsers()
+const { getUserDisplay } = useUsers()
 
 const tickets = ref<any[]>([])
 const total = ref(0)
@@ -86,7 +86,6 @@ function formatDate(d: string) {
 }
 
 onMounted(async () => {
-  if (!loaded.value) await fetchUsers()
   loadStats()
   loadTickets()
 })
@@ -122,37 +121,24 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- Filters bar -->
-    <div class="card p-4 mb-6">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex gap-1 flex-wrap">
-          <button @click="setFilter('')" class="btn-sm" :class="statusFilter === '' ? 'btn-primary' : 'btn-ghost'">Все</button>
-          <button @click="setFilter('NEW')" class="btn-sm" :class="statusFilter === 'NEW' ? 'btn-primary' : 'btn-ghost'">Новые</button>
-          <button @click="setFilter('IN_WORK')" class="btn-sm" :class="statusFilter === 'IN_WORK' ? 'btn-primary' : 'btn-ghost'">В работе</button>
-          <button @click="setFilter('DONE')" class="btn-sm" :class="statusFilter === 'DONE' ? 'btn-primary' : 'btn-ghost'">Выполнены</button>
-          <button @click="setFilter('CLOSED')" class="btn-sm" :class="statusFilter === 'CLOSED' ? 'btn-primary' : 'btn-ghost'">Закрыты</button>
-        </div>
-        <span class="text-sm text-gray-400">Всего: {{ total }}</span>
-      </div>
-    </div>
-
-    <!-- Loading -->
-    <div v-if="loading" class="card overflow-hidden">
-      <SkeletonTable :rows="6" :columns="6" />
-    </div>
-
-    <!-- Empty -->
-    <div v-else-if="tickets.length === 0" class="card p-12 text-center">
-      <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-        <InboxStackIcon class="w-8 h-8 text-gray-400" />
-      </div>
-      <p class="text-gray-500 dark:text-gray-400 mb-4">Нет заявок с выбранным статусом</p>
-      <button @click="setFilter('')" class="btn-secondary">Показать все</button>
-    </div>
-
-    <!-- Table with transition -->
+    <!-- Content with transition -->
     <Transition name="page" mode="out-in">
-      <div v-if="!loading && tickets.length > 0" key="table">
+      <!-- Loading skeleton -->
+      <div v-if="loading" key="loading" class="card overflow-hidden">
+        <SkeletonTable :rows="6" :columns="6" />
+      </div>
+
+      <!-- Empty state -->
+      <div v-else-if="tickets.length === 0" key="empty" class="card p-12 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <InboxStackIcon class="w-8 h-8 text-gray-400" />
+        </div>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">Нет заявок с выбранным статусом</p>
+        <button @click="setFilter('')" class="btn-secondary">Показать все</button>
+      </div>
+
+      <!-- Table -->
+      <div v-else key="table">
         <div class="card overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -168,7 +154,7 @@ onMounted(async () => {
               <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 <tr v-for="t in tickets" :key="t.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" @click="viewTicket(t.id)">
                   <td class="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-xs truncate">{{ t.title }}</td>
-                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ getUserDisplay(t.user_id) }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ t.user_name || getUserDisplay(t.user_id) }}</td>
                   <td class="px-4 py-3"><StatusBadge :status="t.status" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(t.created_at) }}</td>
                   <td class="px-4 py-3 text-right">
@@ -180,6 +166,7 @@ onMounted(async () => {
           </div>
         </div>
         <Pagination
+          v-if="totalPages > 1"
           :page="page"
           :total-pages="totalPages"
           :total="total"

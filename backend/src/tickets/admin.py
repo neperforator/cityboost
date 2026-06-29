@@ -107,6 +107,8 @@ async def admin_get_ticket(
         latitude=ticket.latitude,
         longitude=ticket.longitude,
         address=ticket.address,
+        user_name=ticket.user.name if ticket.user else "",
+        assigned_to_name=ticket.assignee.name if ticket.assignee else None,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
         files=ticket.files,
@@ -185,7 +187,15 @@ async def admin_add_comment(
     comment = await service.add_comment(ticket_id, admin.id, data.comment_text)
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
-    return comment
+    return TicketCommentOut(
+        id=comment.id,
+        ticket_id=comment.ticket_id,
+        author_id=comment.author_id,
+        author_name=admin.name,
+        author_role=admin.role.value,
+        comment_text=comment.comment_text,
+        created_at=comment.created_at,
+    )
 
 
 @admin_router.get(

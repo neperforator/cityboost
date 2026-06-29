@@ -10,7 +10,7 @@ import SkeletonDetail from '@/components/SkeletonDetail.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import L from 'leaflet'
 
-import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ShieldCheckIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon } from '@heroicons/vue/24/outline'
 import { WrenchScrewdriverIcon } from '@heroicons/vue/24/solid'
 
 // Fix default Leaflet marker icons
@@ -25,7 +25,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const auth = useAuthStore()
-const { getUserName, getUserDisplay, fetchUsers, loaded } = useUsers()
+const { getUserName, getUserDisplay } = useUsers()
 
 const ticket = ref<any>(null)
 const loading = ref(true)
@@ -42,6 +42,32 @@ function openLightbox(files: any[], index: number) {
 }
 
 const statuses = ['NEW', 'IN_WORK', 'DONE', 'CLOSED']
+
+const statusLabels: Record<string, string> = {
+  NEW: 'Новая',
+  IN_WORK: 'В работе',
+  DONE: 'Выполнена',
+  CLOSED: 'Закрыта',
+}
+
+async function load(silent = false) {
+  const ticketId = route.params.id as string
+  if (!silent) loading.value = true
+  error.value = ''
+  try {
+    const [ticketData, historyData] = await Promise.all([
+      adminAPI.getTicket(ticketId),
+      adminAPI.getHistory(ticketId),
+    ])
+    ticket.value = ticketData
+    history.value = historyData
+  } catch (err) {
+    error.value = (err as Error).message
+    if ((err as Error).message.includes('404')) error.value = 'Заявка не найдена'
+  } finally {
+    if (!silent) loading.value = false
+  }
+}
 
 load()
 onUnmounted(() => { if (map) map.remove() })
@@ -109,8 +135,6 @@ function formatDate(d: string) {
   return new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-load()
-onUnmounted(() => { if (map) map.remove() })
 </script>
 
 <template>
@@ -150,7 +174,7 @@ onUnmounted(() => { if (map) map.remove() })
                 <div class="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500 dark:text-gray-400">
                   <span class="inline-flex items-center gap-1"><CalendarDaysIcon class="w-4 h-4" /> {{ formatDate(ticket.created_at) }}</span>
                   <span class="text-gray-300 dark:text-gray-600">·</span>
-                  <span class="inline-flex items-center gap-1"><UserCircleIcon class="w-4 h-4" /> {{ getUserDisplay(ticket.user_id) }}</span>
+                  <span class="inline-flex items-center gap-1"><UserCircleIcon class="w-4 h-4" /> {{ ticket.user_name || getUserDisplay(ticket.user_id) }}</span>
                 </div>
               </div>
               <StatusBadge :status="ticket.status" size="lg" />
@@ -200,7 +224,7 @@ onUnmounted(() => { if (map) map.remove() })
               Комментарии ({{ ticket.comments?.length || 0 }})
             </h3>
 
-            <div v-if="ticket.comments?.length" class="space-y-3 mb-6">
+            <div v-if="ticket.comments?.length" class="space-y-3 mb-6 max-h-96 overflow-y-auto pr-1 -mr-1">
               <div v-for="c in ticket.comments" :key="c.id" class="flex gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <div class="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center shrink-0">
                   <UserCircleIcon class="w-5 h-5 text-primary-600 dark:text-primary-400" />
@@ -208,7 +232,10 @@ onUnmounted(() => { if (map) map.remove() })
                 <div class="flex-1">
                   <div class="flex items-center gap-2 mb-1">
                     <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ c.author_name || getUserName(c.author_id) }}</span>
-                    <span v-if="c.author_role === 'admin'" class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-300">Admin</span>
+                    <span v-if="c.author_role === 'admin'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+                      <ShieldCheckIcon class="w-3.5 h-3.5" />
+                      Администратор
+                    </span>
                     <span class="text-xs text-gray-400">{{ formatDate(c.created_at) }}</span>
                   </div>
                   <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ c.comment_text }}</p>
@@ -218,7 +245,10 @@ onUnmounted(() => { if (map) map.remove() })
             <div v-else class="text-sm text-gray-400 py-4 text-center">Комментариев пока нет</div>
 
             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <textarea v-model="commentText" class="form-textarea text-sm" rows="2" placeholder="Добавить комментарий..."></textarea>
+              <div class="relative">
+                <textarea v-model="commentText" class="form-textarea text-sm" rows="2" maxlength="2000" placeholder="Добавить комментарий..."></textarea>
+                <span class="absolute bottom-2 right-3 text-xs text-gray-400">{{ commentText.length }}/2000</span>
+              </div>
               <button @click="addComment" class="btn-primary btn-sm mt-2" :disabled="commenting || !commentText.trim()">
                 {{ commenting ? 'Отправка...' : 'Отправить комментарий' }}
               </button>
@@ -260,7 +290,7 @@ onUnmounted(() => { if (map) map.remove() })
               Назначение
             </h3>
             <div v-if="ticket.assigned_to" class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              Исполнитель: <strong class="text-gray-900 dark:text-white">{{ getUserDisplay(ticket.assigned_to) }}</strong>
+              Исполнитель: <strong class="text-gray-900 dark:text-white">{{ ticket.assigned_to_name || getUserDisplay(ticket.assigned_to) }}</strong>
             </div>
             <button @click="assign" :disabled="!!ticket.assigned_to" class="btn-primary w-full text-sm" :class="{ 'opacity-50 cursor-not-allowed': ticket.assigned_to }">
               <WrenchScrewdriverIcon v-if="!ticket.assigned_to" class="w-4 h-4" />
@@ -275,7 +305,7 @@ onUnmounted(() => { if (map) map.remove() })
               Заявитель
             </h3>
             <div class="text-sm space-y-2">
-              <p class="text-gray-700 dark:text-gray-300">{{ getUserDisplay(ticket.user_id) }}</p>
+              <p class="text-gray-700 dark:text-gray-300">{{ ticket.user_name || getUserDisplay(ticket.user_id) }}</p>
               <p class="text-xs text-gray-400 inline-flex items-center gap-1">
                 <CalendarDaysIcon class="w-3.5 h-3.5" />
                 {{ formatDate(ticket.created_at) }}
@@ -294,7 +324,7 @@ onUnmounted(() => { if (map) map.remove() })
               <div v-for="h in history" :key="h.id" class="text-xs border-l-2 border-primary-300 dark:border-primary-600 pl-3 py-1.5">
                 <p class="text-gray-400">{{ formatDate(h.created_at) }}</p>
                 <p class="text-gray-600 dark:text-gray-400 mt-0.5">
-                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ getUserDisplay(h.changed_by) }}</span>
+                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ h.changed_by_name || getUserDisplay(h.changed_by) }}</span>
                 </p>
                 <p class="mt-1 flex items-center gap-1.5 flex-wrap">
                   <span class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-400">{{ h.old_status || '—' }}</span>

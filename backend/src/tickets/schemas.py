@@ -40,10 +40,36 @@ class TicketOut(BaseModel):
     latitude: float | None
     longitude: float | None
     address: str | None
+    user_name: str = ""
+    assigned_to_name: str | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_ticket_names(cls, data):
+        """Извлекаем имена пользователя и исполнителя из связанных ORM объектов."""
+        if not isinstance(data, dict):
+            user = getattr(data, 'user', None)
+            assignee = getattr(data, 'assignee', None)
+            return {
+                "id": data.id,
+                "user_id": data.user_id,
+                "assigned_to": data.assigned_to,
+                "title": data.title,
+                "description": data.description,
+                "status": data.status,
+                "latitude": data.latitude,
+                "longitude": data.longitude,
+                "address": data.address,
+                "created_at": data.created_at,
+                "updated_at": data.updated_at,
+                "user_name": user.name if user else "",
+                "assigned_to_name": assignee.name if assignee else None,
+            }
+        return data
 
 
 class TicketOutDetail(TicketOut):
@@ -88,7 +114,7 @@ class TicketFileOut(BaseModel):
 
 class TicketCommentCreate(BaseModel):
     """Создание комментария (публичного)."""
-    comment_text: str = Field(..., min_length=1, description="Текст комментария")
+    comment_text: str = Field(..., min_length=1, max_length=2000, description="Текст комментария")
 
 
 class TicketCommentOut(BaseModel):
@@ -109,12 +135,15 @@ class TicketCommentOut(BaseModel):
         """Извлекаем имя и роль автора из связанного User при десериализации из ORM."""
         if not isinstance(data, dict):
             author = getattr(data, 'author', None)
-            if author is not None:
-                data.author_name = author.name
-                data.author_role = author.role.value if hasattr(author, 'role') and author.role else "user"
-            else:
-                data.author_name = "Неизвестно"
-                data.author_role = "user"
+            return {
+                "id": data.id,
+                "ticket_id": data.ticket_id,
+                "author_id": data.author_id,
+                "comment_text": data.comment_text,
+                "created_at": data.created_at,
+                "author_name": author.name if author is not None else "Неизвестно",
+                "author_role": author.role.value if author is not None and hasattr(author, 'role') and author.role else "user",
+            }
         return data
 
 
@@ -125,8 +154,26 @@ class TicketHistoryOut(BaseModel):
     id: uuid.UUID
     ticket_id: uuid.UUID
     changed_by: uuid.UUID
+    changed_by_name: str = ""
     old_status: str | None
     new_status: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_changed_by_name(cls, data):
+        """Извлекаем имя администратора из связанного changed_by_user."""
+        if not isinstance(data, dict):
+            user = getattr(data, 'changed_by_user', None)
+            return {
+                "id": data.id,
+                "ticket_id": data.ticket_id,
+                "changed_by": data.changed_by,
+                "old_status": data.old_status,
+                "new_status": data.new_status,
+                "created_at": data.created_at,
+                "changed_by_name": user.name if user else "",
+            }
+        return data

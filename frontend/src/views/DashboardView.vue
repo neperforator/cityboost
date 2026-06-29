@@ -137,34 +137,35 @@ onMounted(() => {
       </button>
     </div>
 
-    <!-- Loading -->
-    <SkeletonCard v-if="loading" :count="5" />
-
-    <!-- Error -->
-    <div v-else-if="error" class="card p-8 text-center">
-      <p class="text-red-500 mb-4">{{ error }}</p>
-      <button @click="loadTickets" class="btn-secondary">Повторить</button>
-    </div>
-
-    <!-- Empty state -->
-    <div v-else-if="tickets.length === 0" class="card p-12 text-center">
-      <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-        <InboxStackIcon class="w-8 h-8 text-gray-400" />
-      </div>
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-        {{ activeFilter === 'ALL' ? 'У вас пока нет заявок' : 'Нет заявок с таким статусом' }}
-      </h3>
-      <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">
-        {{ activeFilter === 'ALL' ? 'Создайте первую заявку — мы поможем решить вашу проблему' : 'Попробуйте другой фильтр' }}
-      </p>
-      <button v-if="activeFilter === 'ALL'" @click="goToCreate" class="btn-primary">
-        <PlusIcon class="w-5 h-5" /> Создать заявку
-      </button>
-    </div>
-
-    <!-- Ticket list with transition -->
+    <!-- Content with transition -->
     <Transition name="page" mode="out-in">
-      <div v-if="!loading && tickets.length > 0" key="list" class="space-y-3">
+      <!-- Loading -->
+      <SkeletonCard v-if="loading" key="loading" :count="5" />
+
+      <!-- Error -->
+      <div v-else-if="error" key="error" class="card p-8 text-center">
+        <p class="text-red-500 mb-4">{{ error }}</p>
+        <button @click="loadTickets" class="btn-secondary">Повторить</button>
+      </div>
+
+      <!-- Empty state -->
+      <div v-else-if="tickets.length === 0" key="empty" class="card p-12 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <InboxStackIcon class="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+          {{ activeFilter === 'ALL' ? 'У вас пока нет заявок' : 'Нет заявок с таким статусом' }}
+        </h3>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">
+          {{ activeFilter === 'ALL' ? 'Создайте первую заявку — мы поможем решить вашу проблему' : 'Попробуйте другой фильтр' }}
+        </p>
+        <button v-if="activeFilter === 'ALL'" @click="goToCreate" class="btn-primary">
+          <PlusIcon class="w-5 h-5" /> Создать заявку
+        </button>
+      </div>
+
+      <!-- Ticket list -->
+      <div v-else key="list" class="space-y-3">
         <div
           v-for="ticket in tickets"
           :key="ticket.id"
@@ -193,7 +194,7 @@ onMounted(() => {
 
     <!-- Pagination -->
     <Pagination
-      v-if="!loading && tickets.length > 0"
+      v-if="!loading && tickets.length > 0 && totalPages > 1"
       :page="page"
       :total-pages="totalPages"
       :total="total"

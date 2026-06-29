@@ -9,7 +9,7 @@ import SkeletonDetail from '@/components/SkeletonDetail.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import L from 'leaflet'
 
-import { ArrowLeftIcon, ArrowUpTrayIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, UserCircleIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, ArrowUpTrayIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, UserCircleIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
 
 // Fix default Leaflet marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -219,7 +219,7 @@ onUnmounted(() => { if (map) map.remove() })
           Комментариев пока нет
         </div>
 
-        <div v-else class="space-y-3 mb-6">
+        <div v-else class="space-y-3 mb-6 max-h-96 overflow-y-auto pr-1 -mr-1">
           <div v-for="c in ticket.comments" :key="c.id" class="flex gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
             <div class="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center shrink-0">
               <UserCircleIcon class="w-5 h-5 text-primary-600 dark:text-primary-400" />
@@ -227,7 +227,10 @@ onUnmounted(() => { if (map) map.remove() })
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ c.author_name }}</span>
-                <span v-if="c.author_role === 'admin'" class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-300">Admin</span>
+                <span v-if="c.author_role === 'admin'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+                  <ShieldCheckIcon class="w-3.5 h-3.5" />
+                  Администратор
+                </span>
                 <span class="text-xs text-gray-400">{{ formatDate(c.created_at) }}</span>
               </div>
               <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{{ c.comment_text }}</p>
@@ -237,7 +240,10 @@ onUnmounted(() => { if (map) map.remove() })
 
         <!-- Comment form -->
         <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-          <textarea v-model="commentText" class="form-textarea text-sm" rows="2" placeholder="Добавить комментарий..."></textarea>
+          <div class="relative">
+            <textarea v-model="commentText" class="form-textarea text-sm" rows="2" maxlength="2000" placeholder="Добавить комментарий..."></textarea>
+            <span class="absolute bottom-2 right-3 text-xs text-gray-400">{{ commentText.length }}/2000</span>
+          </div>
           <button @click="addComment" class="btn-primary btn-sm mt-2" :disabled="commenting || !commentText.trim()">
             {{ commenting ? 'Отправка...' : 'Отправить комментарий' }}
           </button>

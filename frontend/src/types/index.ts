@@ -18,6 +18,7 @@ export interface User {
 
 export interface LoginResponse {
   access_token: string
+  refresh_token: string
   token_type: string
 }
 
@@ -43,6 +44,7 @@ export interface Ticket {
   user_id: string
   user_name?: string
   assigned_to?: string | null
+  assigned_to_name?: string | null
   created_at: string
   updated_at?: string
   files?: TicketFile[]
@@ -93,7 +95,18 @@ export interface AdminActionLog {
   action: string
   target_type: string
   target_id: string
+  target_name?: string | null
   details?: string
+  created_at: string
+}
+
+export interface TicketHistoryEntry {
+  id: string
+  ticket_id: string
+  changed_by: string
+  changed_by_name?: string
+  old_status?: string | null
+  new_status: string
   created_at: string
 }
 
