@@ -1,0 +1,38 @@
+# Environment
+.env
+.env.prod
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+*.egg
+.venv/
+venv/
+
+# Node
+node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+certbot/www/
+certbot/conf/
+
+# Storage (user uploads)
+storage/uploads/
+!storage/uploads/.gitkeep
+
+# Logs
+*.log

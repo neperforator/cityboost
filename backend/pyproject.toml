@@ -1,0 +1,45 @@
+[project]
+name = "cityboost-backend"
+version = "1.0.0"
+description = "CityBoost — городской портал заявок"
+requires-python = ">=3.11"
+
+[tool.ruff]
+# Линтер + форматтер
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Список правил: https://docs.astral.sh/ruff/rules/
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",     # line too long (covered by formatter)
+    "N802",     # function name should be lowercase
+    "N803",     # argument name should be lowercase
+    "N806",     # variable in function should be lowercase
+    "N815",     # class attribute mixed case (for SQLAlchemy columns)
+    "SIM115",   # open-file context handler
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N803", "N806"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+testpaths = ["tests"]
+pythonpath = ["src"]
