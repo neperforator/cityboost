@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import L from 'leaflet'
+import { MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 
 // Fix default Leaflet marker icons (broken after npm build)
-delete L.Icon.Default.prototype._getIconUrl
+delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -16,15 +17,15 @@ const props = defineProps({
   modelValue: { type: Object, default: () => ({ lat: null, lng: null }) },
   height: { type: String, default: '400px' },
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'address'])
 
-const mapContainer = ref(null)
+const mapContainer = ref<HTMLDivElement | null>(null)
 const address = ref('')
 const geocoding = ref(false)
-let map = null
-let marker = null
+let map: L.Map | null = null
+let marker: L.Marker | null = null
 
-const nominatimReverse = async (lat, lng) => {
+const nominatimReverse = async (lat: number, lng: number) => {
   geocoding.value = true
   try {
     const res = await fetch(
@@ -43,12 +44,12 @@ const nominatimReverse = async (lat, lng) => {
   }
 }
 
-function onMapClick(e) {
+function onMapClick(e: L.LeafletMouseEvent) {
   const { lat, lng } = e.latlng
   if (marker) marker.setLatLng([lat, lng])
-  else marker = L.marker([lat, lng], { draggable: true }).addTo(map)
+  else marker = L.marker([lat, lng], { draggable: true }).addTo(map!)
   marker.on('dragend', () => {
-    const pos = marker.getLatLng()
+    const pos = marker!.getLatLng()
     emit('update:modelValue', { lat: pos.lat.toFixed(6), lng: pos.lng.toFixed(6) })
     nominatimReverse(pos.lat, pos.lng)
   })
@@ -67,9 +68,8 @@ function manualGeocode() {
     if (data.length > 0) {
       const { lat, lon, display_name } = data[0]
       const latNum = parseFloat(lat), lngNum = parseFloat(lon)
-      if (marker) marker.setLatLng([latNum, lngNum])
-      else marker = L.marker([latNum, lngNum], { draggable: true }).addTo(map)
-      map.setView([latNum, lngNum], 16)
+      marker ? marker.setLatLng([latNum, lngNum]) : (marker = L.marker([latNum, lngNum], { draggable: true }).addTo(map!))
+      map!.setView([latNum, lngNum], 16)
       address.value = display_name
       emit('update:modelValue', { lat: latNum.toFixed(6), lng: lngNum.toFixed(6) })
       emit('address', display_name)
@@ -82,8 +82,8 @@ function manualGeocode() {
   }).finally(() => { geocoding.value = false })
 }
 
-watch(() => props.modelValue, (val) => {
-  if (val.lat && val.lng && map) {
+watch(() => props.modelValue, (val: any) => {
+  if (val?.lat && val?.lng && map) {
     map.setView([val.lat, val.lng], 16)
     if (marker) marker.setLatLng([val.lat, val.lng])
     else marker = L.marker([val.lat, val.lng], { draggable: true }).addTo(map)
@@ -91,7 +91,7 @@ watch(() => props.modelValue, (val) => {
 })
 
 onMounted(() => {
-  map = L.map(mapContainer.value, { attributionControl: false }).setView([55.7558, 37.6173], 12)
+  map = L.map(mapContainer.value!, { attributionControl: false }).setView([55.1904, 30.2049], 12)
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -100,7 +100,7 @@ onMounted(() => {
   map.on('click', onMapClick)
 
   // If initial position set
-  if (props.modelValue.lat && props.modelValue.lng) {
+  if (props.modelValue?.lat && props.modelValue?.lng) {
     map.setView([props.modelValue.lat, props.modelValue.lng], 16)
     marker = L.marker([props.modelValue.lat, props.modelValue.lng], { draggable: true }).addTo(map)
   }
@@ -115,15 +115,18 @@ onUnmounted(() => {
   <div class="space-y-3">
     <!-- Search by address -->
     <div class="flex gap-2">
-      <input
-        v-model="address"
-        type="text"
-        class="form-input flex-1"
-        placeholder="Введите адрес для поиска на карте..."
-        @keyup.enter="manualGeocode"
-      />
+      <div class="relative flex-1">
+        <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          v-model="address"
+          type="text"
+          class="form-input pl-9"
+          placeholder="Поиск адреса на карте..."
+          @keyup.enter="manualGeocode"
+        />
+      </div>
       <button type="button" class="btn-primary btn-sm" :disabled="geocoding || !address.trim()" @click="manualGeocode">
-        {{ geocoding ? 'Поиск...' : '🔍 Найти' }}
+        {{ geocoding ? 'Поиск...' : 'Найти' }}
       </button>
     </div>
 
@@ -135,9 +138,9 @@ onUnmounted(() => {
     ></div>
 
     <!-- Coordinates display -->
-    <div v-if="modelValue.lat" class="flex gap-4 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2">
-      <span>📍 Широта: <strong>{{ modelValue.lat }}</strong></span>
-      <span>📍 Долгота: <strong>{{ modelValue.lng }}</strong></span>
+    <div v-if="modelValue.lat" class="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2">
+      <span>Широта: <strong>{{ modelValue.lat }}</strong></span>
+      <span>Долгота: <strong>{{ modelValue.lng }}</strong></span>
     </div>
   </div>
 </template>

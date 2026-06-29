@@ -1,5 +1,5 @@
 import axios, { type AxiosError } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, AdminActionLog, AuditLogFilters } from '@/types'
+import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -47,7 +47,6 @@ export interface AuthAPI {
   login(email: string, password: string): Promise<LoginResponse>
   me(): Promise<User>
   updateProfile(data: Partial<{ name: string; current_password: string; new_password: string }>): Promise<User>
-  uploadAvatar(file: File): Promise<{ avatar_path: string }>
   forgotPassword(email: string): Promise<{ message: string }>
   resetPassword(token: string, password: string): Promise<{ message: string }>
 }
@@ -65,13 +64,6 @@ export const authAPI: AuthAPI = {
   updateProfile(data) {
     return api.patch('/auth/me', data).then(r => r.data)
   },
-  uploadAvatar(file) {
-    const fd = new FormData()
-    fd.append('file', file)
-    return api.post('/auth/me/avatar', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then(r => r.data)
-  },
   forgotPassword(email) {
     return api.post('/auth/forgot-password', { email }).then(r => r.data)
   },
@@ -83,21 +75,27 @@ export const authAPI: AuthAPI = {
 // ---- Tickets ----
 
 export interface TicketAPI {
-  list(page?: number, pageSize?: number): Promise<PaginatedResponse<Ticket>>
+  list(page?: number, pageSize?: number, status?: string): Promise<PaginatedResponse<Ticket>>
   get(id: string): Promise<Ticket>
-  create(data: Record<string, unknown>): Promise<Ticket>
+  create(formData: FormData): Promise<Ticket>
   uploadFile(ticketId: string, file: File): Promise<unknown>
+  addComment(ticketId: string, text: string): Promise<TicketComment>
+  getStats(): Promise<{ total: number; new: number; in_work: number; done: number; closed: number }>
 }
 
 export const ticketAPI: TicketAPI = {
-  list(page = 1, pageSize = 20) {
-    return api.get(`/tickets?page=${page}&page_size=${pageSize}`).then(r => r.data)
+  list(page = 1, pageSize = 20, status?: string) {
+    let url = `/tickets?page=${page}&page_size=${pageSize}`
+    if (status) url += `&status=${status}`
+    return api.get(url).then(r => r.data)
   },
   get(id) {
     return api.get(`/tickets/${id}`).then(r => r.data)
   },
-  create(data) {
-    return api.post('/tickets', data).then(r => r.data)
+  create(formData) {
+    return api.post('/tickets', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data)
   },
   uploadFile(ticketId, file) {
     const fd = new FormData()
@@ -106,20 +104,28 @@ export const ticketAPI: TicketAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data)
   },
+  addComment(ticketId, text) {
+    return api.post(`/tickets/${ticketId}/comments`, { comment_text: text }).then(r => r.data)
+  },
+  getStats() {
+    return api.get('/tickets/stats').then(r => r.data)
+  },
 }
 
 // ---- Users ----
 
 export interface UserAPI {
-  list(): Promise<User[]>
+  list(page?: number, pageSize?: number, search?: string): Promise<PaginatedResponse<User>>
   changeRole(userId: string, role: string): Promise<User>
   ban(userId: string): Promise<User>
   unban(userId: string): Promise<User>
 }
 
 export const userAPI: UserAPI = {
-  list() {
-    return api.get('/admin/users').then(r => r.data)
+  list(page = 1, pageSize = 20, search?: string) {
+    let url = `/admin/users?page=${page}&page_size=${pageSize}`
+    if (search) url += `&search=${encodeURIComponent(search)}`
+    return api.get(url).then(r => r.data)
   },
   changeRole(userId, role) {
     return api.patch(`/admin/users/${userId}/role?new_role=${role}`).then(r => r.data)
@@ -142,6 +148,7 @@ export interface AdminAPI {
   addComment(id: string, text: string): Promise<TicketComment>
   getHistory(id: string): Promise<unknown[]>
   getAuditLogs(params?: AuditLogFilters): Promise<PaginatedResponse<AdminActionLog>>
+  getStats(): Promise<{ total: number; new: number; in_work: number; done: number; closed: number }>
 }
 
 export const adminAPI: AdminAPI = {
@@ -173,5 +180,8 @@ export const adminAPI: AdminAPI = {
     if (params.page_size) q.set('page_size', String(params.page_size))
     if (params.action) q.set('action', params.action)
     return api.get(`/admin/audit-logs?${q}`).then(r => r.data)
+  },
+  getStats() {
+    return api.get('/admin/tickets/stats').then(r => r.data)
   },
 }

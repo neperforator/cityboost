@@ -22,7 +22,7 @@ class TicketRepository:
             select(Ticket)
             .options(
                 selectinload(Ticket.files),
-                selectinload(Ticket.comments),
+                selectinload(Ticket.comments).selectinload(TicketComment.author),
                 selectinload(Ticket.history),
             )
             .where(Ticket.id == ticket_id),
@@ -92,8 +92,9 @@ class TicketRepository:
         user_id: uuid.UUID,
         page: int = 1,
         page_size: int = 20,
+        status: TicketStatus | None = None,
     ) -> tuple[list[Ticket], int]:
-        """Получить заявки пользователя с пагинацией."""
+        """Получить заявки пользователя с пагинацией и опциональным фильтром по статусу."""
         query = (
             select(Ticket)
             .where(Ticket.user_id == user_id)
@@ -101,10 +102,15 @@ class TicketRepository:
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
+        count_query = select(func.count()).select_from(Ticket).where(Ticket.user_id == user_id)
+
+        if status is not None:
+            query = query.where(Ticket.status == status)
+            count_query = count_query.where(Ticket.status == status)
+
         result = await db.execute(query)
         items = list(result.scalars().all())
 
-        count_query = select(func.count()).select_from(Ticket).where(Ticket.user_id == user_id)
         count_result = await db.execute(count_query)
         total = count_result.scalar() or 0
 
@@ -145,6 +151,27 @@ class TicketRepository:
         total = count_result.scalar() or 0
 
         return items, total
+
+
+    @staticmethod
+    async def get_status_counts(
+        db: AsyncSession,
+        user_id: uuid.UUID | None = None,
+    ) -> dict[str, int]:
+        """Получить количество заявок по каждому статусу."""
+        query = select(Ticket.status, func.count()).select_from(Ticket).group_by(Ticket.status)
+        if user_id is not None:
+            query = query.where(Ticket.user_id == user_id)
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        counts: dict[str, int] = {s.value: 0 for s in TicketStatus}
+        for status_val, cnt in rows:
+            if status_val is not None:
+                counts[status_val.value] = cnt
+        counts["total"] = sum(counts.values())
+        return counts
 
 
 class TicketFileRepository:

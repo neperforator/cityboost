@@ -24,6 +24,7 @@ from src.tickets.schemas import (
     TicketHistoryOut,
     TicketOut,
     TicketOutDetail,
+    TicketStats,
 )
 from src.tickets.service import TicketService
 
@@ -55,6 +56,28 @@ async def admin_list_tickets(
         db, status, date_from, date_to, page, page_size,
     )
     return PaginatedTickets(items=items, total=total, page=page, page_size=page_size)
+
+
+@admin_router.get(
+    "/stats",
+    response_model=TicketStats,
+    summary="Статистика всех заявок",
+    description="Количество заявок по статусам (глобально).",
+)
+async def admin_ticket_stats(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_current_user),
+) -> TicketStats:
+    """Получить глобальную статистику заявок."""
+    service = TicketService(db)
+    counts = await service.repo.get_status_counts(db)
+    return TicketStats(
+        total=counts.get("total", 0),
+        new=counts.get("NEW", 0),
+        in_work=counts.get("IN_WORK", 0),
+        done=counts.get("DONE", 0),
+        closed=counts.get("CLOSED", 0),
+    )
 
 
 @admin_router.get(

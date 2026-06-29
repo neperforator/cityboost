@@ -1,8 +1,7 @@
 """
 Pytest fixtures for CityBoost async tests.
 
-Использует testcontainers для PostgreSQL, либо — если не доступны —
-запускает тесты с in-memory SQLite через aiosqlite.
+Использует SQLite in-memory для тестов (не требуется PostgreSQL).
 """
 
 from __future__ import annotations
@@ -23,17 +22,17 @@ import src.auth.models  # noqa: F401 — User
 import src.tickets.models  # noqa: F401 — Ticket, TicketFile, TicketHistory, TicketComment
 import src.common.audit  # noqa: F401 — AdminActionLog
 
+# Игнорируем интеграционный тест (не pytest-файл, а скрипт с последовательным вызовом)
+collect_ignore = ["integration_test.py"]
+
 # ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def async_engine():
-    """Создаём временный async engine для тестовой БД.
-
-    По умолчанию использует SQLite (aiosqlite), чтобы не зависеть от PostgreSQL.
-    """
+    """Create an in-memory SQLite engine for isolated tests."""
     engine = create_async_engine("sqlite+aiosqlite://", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -43,32 +42,30 @@ async def async_engine():
 
 @pytest_asyncio.fixture
 async def db_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Сессия для каждого теста — с транзакцией и откатом."""
+    """Yield a fresh session scoped to a single test function."""
     session_factory = async_sessionmaker(
-        async_engine, class_=AsyncSession, expire_on_commit=False
+        async_engine, expire_on_commit=False,
     )
     async with session_factory() as session:
         yield session
-
-
-# ---------------------------------------------------------------------------
-# HTTP client
-# ---------------------------------------------------------------------------
+        await session.rollback()
 
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Тестовый HTTP-клиент с замоканой БД-сессией и отключённым rate limiting."""
+async def client(
+    async_engine,
+    db_session: AsyncSession,
+) -> AsyncGenerator[AsyncClient, None]:
+    """HTTP test client with overridden DB session and mocked Redis."""
+    from src.main import app  # noqa: F811
 
-    async def override_get_db():
+    async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
-    # Импортируем app здесь, чтобы избежать циклических импортов
-    from src.main import app
+    app.dependency_overrides[get_db] = _override_get_db
 
-    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
 
-    transport = ASGITransport(app=app)  # type: ignore[arg-type]
     with patch("src.common.ratelimit.get_redis", AsyncMock(return_value=None)):
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac

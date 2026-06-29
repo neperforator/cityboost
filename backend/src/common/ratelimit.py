@@ -46,6 +46,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware rate limiting через Redis."""
 
     async def dispatch(self, request: Request, call_next):
+        # На время разработки — отключаем rate limiting
+        if settings.DEBUG:
+            return await call_next(request)
+
         path = request.url.path
         client_ip = request.client.host if request.client else "unknown"
 

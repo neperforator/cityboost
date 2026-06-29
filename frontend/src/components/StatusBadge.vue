@@ -1,15 +1,15 @@
 <script setup lang="ts">
-defineProps({
-  status: { type: String, required: true },
-  size: { type: String, default: 'normal' },
-})
+withDefaults(defineProps<{
+  status: string
+  size?: string
+}>(), { size: 'normal' })
 
-const labels = { NEW: 'Новая', IN_WORK: 'В работе', DONE: 'Выполнена', CLOSED: 'Закрыта' }
+const labels: Record<string, string> = { NEW: 'Новая', IN_WORK: 'В работе', DONE: 'Выполнена', CLOSED: 'Закрыта' }
 </script>
 
 <template>
   <span
-    class="inline-flex items-center rounded-full font-semibold"
+    class="inline-flex items-center rounded-full font-semibold transition-all duration-300 ease-in-out"
     :class="{
       'badge-new': status === 'NEW',
       'badge-in-work': status === 'IN_WORK',

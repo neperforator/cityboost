@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.tickets.models import Ticket, TicketComment, TicketFile, TicketStatus
 from src.tickets.repository import (
     TicketCommentRepository,
@@ -41,6 +43,51 @@ class TicketService:
         )
         return ticket
 
+    async def create_ticket_with_files(
+        self,
+        user_id: uuid.UUID,
+        title: str,
+        description: str,
+        file_data_list: list[tuple[str, bytes, str]],  # (mime, contents, filename)
+        latitude: float | None = None,
+        longitude: float | None = None,
+        address: str | None = None,
+    ) -> Ticket:
+        """Создать заявку с файлами — всё в одной транзакции."""
+        # Создаём заявку
+        ticket = await self.repo.create(
+            db=self.db,
+            user_id=user_id,
+            title=title,
+            description=description,
+            latitude=latitude,
+            longitude=longitude,
+            address=address,
+        )
+
+        # Сохраняем файлы на диск и в БД
+        upload_dir = Path(settings.UPLOAD_PATH) / str(ticket.id)
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
+        for mime_type, contents, original_name in file_data_list:
+            unique_name = f"{uuid.uuid4()}_{original_name}"
+            file_path = upload_dir / unique_name
+            file_path.write_bytes(contents)
+
+            relative_path = f"uploads/tickets/{ticket.id}/{unique_name}"
+            await self.file_repo.create(
+                self.db,
+                ticket.id,
+                relative_path,
+                len(contents),
+                mime_type,
+            )
+
+        # Обновляем объект, чтобы relations подгрузились
+        await self.db.refresh(ticket, ["files"])
+
+        return ticket
+
     async def get_ticket(self, ticket_id: uuid.UUID) -> Ticket | None:
         """Получить заявку по ID."""
         return await self.repo.get_by_id(self.db, ticket_id)
@@ -50,9 +97,10 @@ class TicketService:
         user_id: uuid.UUID,
         page: int = 1,
         page_size: int = 20,
+        status: TicketStatus | None = None,
     ) -> tuple[list[Ticket], int]:
-        """Список заявок пользователя с пагинацией."""
-        return await self.repo.list_by_user(self.db, user_id, page, page_size)
+        """Список заявок пользователя с пагинацией и фильтром."""
+        return await self.repo.list_by_user(self.db, user_id, page, page_size, status)
 
     async def change_status(
         self,

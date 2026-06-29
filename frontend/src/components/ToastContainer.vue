@@ -1,7 +1,23 @@
 <script setup lang="ts">
 import { useToast } from '@/composables/useToast'
+import { XMarkIcon } from '@heroicons/vue/24/solid'
+import { CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XCircleIcon } from '@heroicons/vue/24/outline'
 
 const { toasts, remove } = useToast()
+
+const iconMap: Record<string, any> = {
+  success: CheckCircleIcon,
+  error: XCircleIcon,
+  warning: ExclamationTriangleIcon,
+  info: InformationCircleIcon,
+}
+
+const bgMap: Record<string, string> = {
+  success: 'bg-emerald-600',
+  error: 'bg-red-600',
+  warning: 'bg-amber-500',
+  info: 'bg-primary-600',
+}
 </script>
 
 <template>
@@ -10,17 +26,14 @@ const { toasts, remove } = useToast()
       <div
         v-for="t in toasts"
         :key="t.id"
-        class="pointer-events-auto px-4 py-3 rounded-xl shadow-xl text-sm font-medium flex items-center gap-3 animate-slide-in"
-        :class="{
-          'bg-emerald-500 text-white': t.type === 'success',
-          'bg-red-500 text-white': t.type === 'error',
-          'bg-indigo-500 text-white': t.type === 'info',
-          'bg-amber-500 text-white': t.type === 'warning',
-        }"
+        class="pointer-events-auto px-4 py-3 rounded-xl shadow-modal text-sm font-medium flex items-center gap-3"
+        :class="bgMap[t.type]"
       >
-        <span class="text-lg">{{ t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : t.type === 'warning' ? '⚠️' : 'ℹ️' }}</span>
-        <span class="flex-1">{{ t.message }}</span>
-        <button @click="remove(t.id)" class="text-white/70 hover:text-white shrink-0">&times;</button>
+        <component :is="iconMap[t.type]" class="w-5 h-5 text-white shrink-0" />
+        <span class="flex-1 text-white">{{ t.message }}</span>
+        <button @click="remove(t.id)" class="text-white/70 hover:text-white shrink-0">
+          <XMarkIcon class="w-4 h-4" />
+        </button>
       </div>
     </TransitionGroup>
   </div>

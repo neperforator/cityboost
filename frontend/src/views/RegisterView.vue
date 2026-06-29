@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { TicketIcon } from '@heroicons/vue/24/solid'
+import { UserPlusIcon, UserIcon, EnvelopeIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -26,7 +28,7 @@ async function handleRegister() {
     toast.success('Аккаунт создан! Добро пожаловать!')
     router.push('/dashboard')
   } catch (err) {
-    error.value = err.message
+    error.value = (err as Error).message
   } finally {
     loading.value = false
   }
@@ -34,31 +36,46 @@ async function handleRegister() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 px-4">
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 px-4">
     <div class="w-full max-w-md">
+      <!-- Logo -->
       <div class="text-center mb-8">
-        <div class="text-5xl mb-3">🏙️</div>
-        <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">Создать аккаунт</h1>
-        <p class="text-gray-500 dark:text-gray-400 mt-1">Зарегистрируйтесь для работы с заявками</p>
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 dark:bg-primary-500 shadow-lg mb-4">
+          <TicketIcon class="w-7 h-7 text-white" />
+        </div>
+        <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Создать аккаунт</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1.5">Зарегистрируйтесь для работы с заявками</p>
       </div>
 
       <div class="card p-8">
         <form @submit.prevent="handleRegister" class="space-y-4">
-          <div>
+          <div class="form-input-group">
             <label class="form-label">Имя</label>
-            <input v-model="name" type="text" class="form-input" placeholder="Иван Иванов" required />
+            <div class="relative">
+              <UserIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input v-model="name" type="text" class="form-input pl-10" placeholder="Иван Иванов" required />
+            </div>
           </div>
-          <div>
+          <div class="form-input-group">
             <label class="form-label">Email</label>
-            <input v-model="email" type="email" class="form-input" placeholder="your@email.com" autocomplete="email" required />
+            <div class="relative">
+              <EnvelopeIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input v-model="email" type="email" class="form-input pl-10" placeholder="your@email.com" autocomplete="email" required />
+            </div>
           </div>
-          <div>
+          <div class="form-input-group">
             <label class="form-label">Пароль</label>
-            <input v-model="password" type="password" class="form-input" placeholder="Минимум 6 символов" autocomplete="new-password" required minlength="6" />
+            <div class="relative">
+              <LockClosedIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input v-model="password" type="password" class="form-input pl-10" placeholder="Минимум 6 символов" autocomplete="new-password" required minlength="6" />
+            </div>
           </div>
-          <div>
+          <div class="form-input-group">
             <label class="form-label">Подтвердите пароль</label>
-            <input v-model="passwordConfirm" type="password" class="form-input" placeholder="Повторите пароль" autocomplete="new-password" required />
+            <div class="relative">
+              <LockClosedIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input v-model="passwordConfirm" type="password" class="form-input pl-10" placeholder="Повторите пароль" autocomplete="new-password" required />
+            </div>
           </div>
 
           <div v-if="error" class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg px-4 py-2.5">
@@ -67,6 +84,7 @@ async function handleRegister() {
 
           <button type="submit" class="btn-primary w-full text-base py-3" :disabled="loading">
             <svg v-if="loading" class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            <UserPlusIcon v-else class="w-5 h-5" />
             {{ loading ? 'Регистрация...' : 'Зарегистрироваться' }}
           </button>
         </form>

@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.tickets.models import TicketStatus
 
@@ -58,6 +58,16 @@ class PaginatedTickets(BaseModel):
     total: int
     page: int
     page_size: int
+    status_counts: dict[str, int] | None = None
+
+
+class TicketStats(BaseModel):
+    """Статистика по статусам заявок."""
+    total: int
+    new: int
+    in_work: int
+    done: int
+    closed: int
 
 
 # ---------- TicketFile ----------
@@ -86,10 +96,26 @@ class TicketCommentOut(BaseModel):
     id: uuid.UUID
     ticket_id: uuid.UUID
     author_id: uuid.UUID
+    author_name: str
+    author_role: str = "user"
     comment_text: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_author_name(cls, data):
+        """Извлекаем имя и роль автора из связанного User при десериализации из ORM."""
+        if not isinstance(data, dict):
+            author = getattr(data, 'author', None)
+            if author is not None:
+                data.author_name = author.name
+                data.author_role = author.role.value if hasattr(author, 'role') and author.role else "user"
+            else:
+                data.author_name = "Неизвестно"
+                data.author_role = "user"
+        return data
 
 
 # ---------- Ticket History ----------

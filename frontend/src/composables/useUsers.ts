@@ -14,7 +14,9 @@ export function useUsers() {
     if (loaded.value) return
     loading.value = true
     try {
-      users.value = await userAPI.list()
+      // Load first 1000 users (covers 401) for the name cache
+      const data = await userAPI.list(1, 1000)
+      users.value = data.items
       loaded.value = true
     } catch {
       // fallback: keep empty
@@ -25,7 +27,13 @@ export function useUsers() {
 
   function getUserName(id: string): string {
     const u = users.value.find(user => user.id === id)
-    return u ? u.name : id.slice(0, 8) + '...'
+    return u ? u.name : 'Неизвестно'
+  }
+
+  function getUserDisplay(id: string): string {
+    const u = users.value.find(user => user.id === id)
+    if (!u) return 'Неизвестно'
+    return `${u.name} (${u.email})`
   }
 
   function getUser(id: string): User | null {
@@ -38,6 +46,7 @@ export function useUsers() {
     loading,
     fetchUsers,
     getUserName,
+    getUserDisplay,
     getUser,
   }
 }

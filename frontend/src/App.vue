@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
@@ -37,16 +37,13 @@ prefersDark.addEventListener('change', onSystemThemeChange)
 
 watch(dark, () => {
   applyTheme()
-  // Сохраняем явный выбор пользователя
   localStorage.setItem('theme', dark.value ? 'dark' : 'light')
 })
 
 const toggleDark = () => { dark.value = !dark.value }
 
-const showHeader = () => {
-  const noHeaderRoutes = ['/login', '/register']
-  return !noHeaderRoutes.includes(route.path)
-}
+const noHeaderRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
+const showHeader = () => !noHeaderRoutes.includes(route.path)
 
 onMounted(() => {
   if (auth.token && !auth.user) {
@@ -63,7 +60,11 @@ onUnmounted(() => {
   <div class="min-h-screen flex flex-col">
     <AppHeader v-if="showHeader()" :dark="dark" @toggle-dark="toggleDark" />
     <main class="flex-1">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <Transition name="page" mode="out-in">
+          <component :is="Component" />
+        </Transition>
+      </router-view>
     </main>
     <AppFooter v-if="showHeader()" />
     <ToastContainer />

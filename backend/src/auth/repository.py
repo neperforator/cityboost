@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import User
@@ -40,3 +40,32 @@ class UserRepository:
         """Список всех пользователей (для админа)."""
         result = await db.execute(select(User).order_by(User.created_at.desc()))
         return list(result.scalars().all())
+
+    @staticmethod
+    async def paginated_list(
+        db: AsyncSession,
+        page: int = 1,
+        page_size: int = 20,
+        search: str | None = None,
+    ) -> tuple[list[User], int]:
+        """Пагинированный список пользователей с поиском (для админа)."""
+        query = select(User).order_by(User.created_at.desc())
+        count_query = select(func.count()).select_from(User)
+
+        if search:
+            pattern = f"%{search}%"
+            query = query.where(
+                User.name.ilike(pattern) | User.email.ilike(pattern)
+            )
+            count_query = count_query.where(
+                User.name.ilike(pattern) | User.email.ilike(pattern)
+            )
+
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await db.execute(query)
+        items = list(result.scalars().all())
+
+        count_result = await db.execute(count_query)
+        total = count_result.scalar() or 0
+
+        return items, total

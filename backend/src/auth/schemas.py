@@ -39,7 +39,6 @@ class UserOut(BaseModel):
     email: str
     role: UserRole
     is_banned: bool
-    avatar_path: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -49,6 +48,14 @@ class TokenResponse(BaseModel):
     """Ответ с JWT токеном."""
     access_token: str
     token_type: str = "bearer"
+
+
+class PaginatedUsers(BaseModel):
+    """Пагинированный ответ со списком пользователей."""
+    items: list[UserOut]
+    total: int
+    page: int
+    page_size: int
 
 
 class ForgotPasswordRequest(BaseModel):

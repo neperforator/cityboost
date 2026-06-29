@@ -5,7 +5,7 @@ API-роуты для аутентификации.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user
@@ -100,34 +100,6 @@ async def update_me(
     service = AuthService(db)
     try:
         user = await service.update_profile(current_user.id, data)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        )
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
-    return user
-
-
-@auth_router.post(
-    "/me/avatar",
-    response_model=UserOut,
-    summary="Загрузить аватар",
-    description="Загружает аватар пользователя (JPEG/PNG, макс 1 МБ).",
-)
-async def upload_avatar(
-    file: UploadFile,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """Загрузить аватар."""
-    contents = await file.read()
-    service = AuthService(db)
-    try:
-        user = await service.upload_avatar(
-            current_user.id, contents, file.filename or "", file.content_type or "",
-        )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

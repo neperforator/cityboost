@@ -5,6 +5,7 @@ Admin API-роуты для просмотра аудит-лога.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -30,7 +31,7 @@ class AuditLogOut(BaseModel):
     target_type: str
     target_id: uuid.UUID | None
     details: str | None
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

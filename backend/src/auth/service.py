@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -19,6 +20,7 @@ from src.auth.schemas import UserRegisterRequest, UserUpdateRequest
 from src.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -149,60 +151,6 @@ class AuthService:
         await self.db.refresh(user)
         return user
 
-    async def upload_avatar(
-        self, user_id: uuid.UUID, file_bytes: bytes, filename: str, content_type: str,
-    ) -> User | None:
-        """Загрузить аватар пользователя."""
-        import os
-
-        from pathlib import Path
-
-        user = await self.repo.get_by_id(self.db, user_id)
-        if user is None:
-            return None
-
-        # Валидация типа
-        allowed = {"image/jpeg", "image/png"}
-        if content_type not in allowed:
-            raise ValueError("Допустимы только JPEG и PNG")
-
-        # Валидация размера (макс 1 МБ)
-        MAX_AVATAR_BYTES = 1 * 1024 * 1024
-        if len(file_bytes) > MAX_AVATAR_BYTES:
-            raise ValueError("Аватар не должен превышать 1 МБ")
-
-        # Magic bytes проверка
-        image_signatures = {
-            b"\xff\xd8\xff": "image/jpeg",
-            b"\x89PNG\r\n\x1a\n": "image/png",
-        }
-        is_valid = any(
-            file_bytes[:len(sig)] == sig for sig in image_signatures
-        )
-        if not is_valid:
-            raise ValueError("Файл не является изображением")
-
-        # Сохраняем файл
-        ext = ".jpg" if content_type == "image/jpeg" else ".png"
-        avatar_filename = f"avatar{ext}"
-        avatar_dir = settings.UPLOAD_PATH.parent / "avatars" / str(user_id)
-        avatar_dir.mkdir(parents=True, exist_ok=True)
-
-        # Удаляем старый аватар
-        if user.avatar_path:
-            old_path = settings.UPLOAD_PATH.parent.parent / user.avatar_path
-            if old_path.exists():
-                os.remove(old_path)
-
-        file_path = avatar_dir / avatar_filename
-        file_path.write_bytes(file_bytes)
-
-        relative_path = f"uploads/avatars/{user_id}/{avatar_filename}"
-        user.avatar_path = relative_path
-        await self.db.flush()
-        await self.db.refresh(user)
-        return user
-
     # ---- Сброс пароля ----
 
     async def generate_reset_token(self, email: str) -> bool:
@@ -224,6 +172,8 @@ class AuthService:
         user.reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
         await self.db.flush()
 
+        from src.config import settings
+
         email_service = get_email_service()
         await email_service.send_password_reset(
             email=email,
@@ -231,6 +181,12 @@ class AuthService:
             name=user.name,
             base_url="",
         )
+
+        if settings.DEBUG:
+            logger.info(
+                "DEBUG: Reset link for %s → #/reset-password?token=%s",
+                email, token,
+            )
         return True
 
     async def reset_password(self, token: str, new_password: str) -> bool:

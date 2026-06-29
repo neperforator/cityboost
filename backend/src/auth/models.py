@@ -50,23 +50,20 @@ class User(Base):
     reset_token_expires: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
     )
-    avatar_path: Mapped[str | None] = mapped_column(
-        String(500), nullable=True,
-    )
 
-    # Связи
+    # Связи — lazy="select" (загружаются только при обращении)
     tickets = relationship(
         "Ticket", back_populates="user",
         foreign_keys="Ticket.user_id",
-        lazy="selectin",
+        lazy="select",
     )
     assigned_tickets = relationship(
         "Ticket", back_populates="assignee",
         foreign_keys="Ticket.assigned_to",
-        lazy="selectin",
+        lazy="select",
     )
-    comments = relationship("TicketComment", back_populates="author", lazy="selectin")
-    history_changes = relationship("TicketHistory", back_populates="changed_by_user", lazy="selectin")
+    comments = relationship("TicketComment", back_populates="author", lazy="select")
+    history_changes = relationship("TicketHistory", back_populates="changed_by_user", lazy="select")
 
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role})>"

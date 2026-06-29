@@ -10,7 +10,6 @@ export interface User {
   email: string
   role: 'user' | 'admin'
   is_banned: boolean
-  avatar_path?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -30,7 +29,7 @@ export interface UserUpdatePayload {
 
 // ---- Tickets ----
 
-export type TicketStatus = 'new' | 'in_progress' | 'resolved' | 'rejected' | 'closed'
+export type TicketStatus = 'NEW' | 'IN_WORK' | 'DONE' | 'CLOSED'
 
 export interface Ticket {
   id: string
@@ -43,9 +42,11 @@ export interface Ticket {
   longitude?: number | null
   user_id: string
   user_name?: string
+  assigned_to?: string | null
   created_at: string
   updated_at?: string
   files?: TicketFile[]
+  comments?: TicketComment[]
 }
 
 export interface TicketFile {
@@ -61,8 +62,9 @@ export interface TicketFile {
 export interface TicketComment {
   id: string
   ticket_id: string
-  user_id: string
-  user_name: string
+  author_id: string
+  author_name: string
+  author_role?: string
   comment_text: string
   created_at: string
 }
@@ -108,7 +110,14 @@ export interface PaginatedResponse<T> {
   total: number
   page: number
   page_size: number
-  total_pages: number
+  total_pages?: number
+  status_counts?: {
+    NEW: number
+    IN_WORK: number
+    DONE: number
+    CLOSED: number
+    total: number
+  }
 }
 
 // ---- Toast ----

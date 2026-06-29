@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user, require_role
 from src.auth.models import User, UserRole
 from src.auth.repository import UserRepository
-from src.auth.schemas import UserOut
+from src.auth.schemas import PaginatedUsers, UserOut
 from src.auth.service import AuthService
 from src.common.audit import log_admin_action
 from src.database import get_db
@@ -27,16 +27,20 @@ admin_user_router = APIRouter(
 
 @admin_user_router.get(
     "",
-    response_model=list[UserOut],
-    summary="Список всех пользователей",
-    description="Возвращает всех пользователей с их ID, именем, email и ролью.",
+    response_model=PaginatedUsers,
+    summary="Список пользователей (пагинированный)",
+    description="Возвращает пользователей с пагинацией и поиском.",
 )
 async def admin_list_users(
+    page: int = Query(1, ge=1, description="Номер страницы"),
+    page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
+    search: str | None = Query(None, description="Поиск по имени или email"),
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(get_current_user),
-) -> list[User]:
-    """Получить список всех пользователей."""
-    return await UserRepository.list_all(db)
+) -> PaginatedUsers:
+    """Получить список пользователей (пагинированный)."""
+    items, total = await UserRepository.paginated_list(db, page, page_size, search)
+    return PaginatedUsers(items=items, total=total, page=page, page_size=page_size)
 
 
 @admin_user_router.patch(
