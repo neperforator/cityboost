@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # --- JWT ---
     JWT_SECRET_KEY: str = "change-this-to-a-very-long-random-secret-key"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # --- App ---
@@ -58,6 +58,14 @@ class Settings(BaseSettings):
 
     # --- Frontend ---
     FRONTEND_URL: str = "http://localhost:5173"
+
+    # --- Refresh Cookie ---
+    REFRESH_COOKIE_NAME: str = "refresh_token"
+    REFRESH_COOKIE_PATH: str = "/api/v1/auth"
+
+    @property
+    def REFRESH_COOKIE_SECURE(self) -> bool:
+        return not self.DEBUG
 
     # --- Sentry ---
     SENTRY_DSN: str = ""

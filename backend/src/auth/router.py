@@ -1,6 +1,7 @@
 """
 API-роуты для аутентификации.
 Регистрация, вход, получение профиля.
+Refresh токен — в httpOnly cookie (безопасно от XSS).
 """
 
 from __future__ import annotations
@@ -8,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user
@@ -16,7 +17,7 @@ from src.config import settings
 from src.auth.models import User
 from src.auth.schemas import (
     ForgotPasswordRequest,
-    RefreshRequest,
+    LogoutResponse,
     ResendCodeRequest,
     ResetPasswordRequest,
     TokenResponse,
@@ -31,6 +32,37 @@ from src.auth.service import AuthService
 from src.database import get_db
 
 auth_router = APIRouter(prefix="/api/v1/auth", tags=["Аутентификация"])
+
+
+# ─── Cookie helpers ────────────────────────────────────────────────
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    """Установить refresh token как httpOnly cookie."""
+    max_age = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 86400
+    response.set_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        max_age=max_age,
+        httponly=True,
+        secure=settings.REFRESH_COOKIE_SECURE,
+        samesite="lax",
+        path=settings.REFRESH_COOKIE_PATH,
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    """Удалить refresh cookie."""
+    response.delete_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        path=settings.REFRESH_COOKIE_PATH,
+        httponly=True,
+        secure=settings.REFRESH_COOKIE_SECURE,
+        samesite="lax",
+    )
+
+
+# ─── Endpoints ─────────────────────────────────────────────────────
 
 
 @auth_router.post(
@@ -60,13 +92,15 @@ async def register(
     "/login",
     response_model=TokenResponse,
     summary="Вход в систему",
-    description="Аутентификация по email и паролю. Возвращает access и refresh токены.",
+    description="Аутентификация по email и паролю. "
+    "Access токен — в теле ответа, refresh токен — в httpOnly cookie.",
 )
 async def login(
     data: UserLoginRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Аутентифицировать пользователя и вернуть токены."""
+    """Аутентифицировать пользователя и вернуть access токен."""
     service = AuthService(db)
     user = await service.authenticate(data.email, data.password)
     if not user:
@@ -91,24 +125,34 @@ async def login(
     )
     await db.flush()
 
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    _set_refresh_cookie(response, refresh_token)
+    return TokenResponse(access_token=access_token)
 
 
 @auth_router.post(
     "/refresh",
     response_model=TokenResponse,
     summary="Обновить access токен",
-    description="Принимает refresh токен, проверяет его и возвращает новую пару токенов.",
+    description="Принимает refresh токен из httpOnly cookie, "
+    "проверяет его и возвращает новую пару токенов.",
 )
 async def refresh(
-    data: RefreshRequest,
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Обновить access токен по refresh токену (ротация)."""
+    """Обновить access токен по refresh токену из cookie (ротация)."""
     service = AuthService(db)
 
+    refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Отсутствует refresh токен",
+        )
+
     # Декодируем JWT refresh
-    payload = service.decode_refresh_token(data.refresh_token)
+    payload = service.decode_refresh_token(refresh_token)
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -147,21 +191,23 @@ async def refresh(
             detail="Refresh токен не найден в системе",
         )
 
-    if not service.verify_refresh_token_hash(data.refresh_token, user.refresh_token_hash):
+    if not service.verify_refresh_token_hash(refresh_token, user.refresh_token_hash):
         # Несовпадение — возможна кража токена → аннулируем все refresh токены пользователя
         user.refresh_token_hash = None
         user.refresh_token_expires = None
         await db.flush()
+        _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Недействительный refresh токен (возможна кража токена)",
         )
 
-    # Проверяем срок действия в БД (на случай, если мы захотели принудительно завершить сессию)
+    # Проверяем срок действия в БД
     if user.refresh_token_expires and user.refresh_token_expires < datetime.now(timezone.utc):
         user.refresh_token_hash = None
         user.refresh_token_expires = None
         await db.flush()
+        _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh токен истёк",
@@ -178,7 +224,8 @@ async def refresh(
     )
     await db.flush()
 
-    return TokenResponse(access_token=new_access_token, refresh_token=new_refresh_token)
+    _set_refresh_cookie(response, new_refresh_token)
+    return TokenResponse(access_token=new_access_token)
 
 
 @auth_router.post(
@@ -186,10 +233,12 @@ async def refresh(
     response_model=VerifyCodeResponse,
     summary="Подтвердить email",
     description="Подтверждает email 6-значным кодом из письма. "
-    "При успехе возвращает JWT токены и данные пользователя (автологин).",
+    "При успехе возвращает access токен и данные пользователя. "
+    "Refresh токен — в httpOnly cookie.",
 )
 async def verify_email(
     data: VerifyEmailRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> VerifyCodeResponse:
     """Подтвердить email по коду из письма."""
@@ -214,11 +263,31 @@ async def verify_email(
     # Обновляем объект для сериализации
     await db.refresh(user)
 
-    return VerifyCodeResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=user,
-    )
+    _set_refresh_cookie(response, refresh_token)
+    return VerifyCodeResponse(access_token=access_token, user=user)
+
+
+@auth_router.post(
+    "/logout",
+    response_model=LogoutResponse,
+    summary="Выйти",
+    description="Аннулирует refresh токен на сервере и удаляет cookie.",
+)
+async def logout(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LogoutResponse:
+    """Выйти — очистить refresh токен в БД и cookie."""
+    from src.auth.repository import UserRepository
+    repo = UserRepository()
+    user = await repo.get_by_id(db, current_user.id)
+    if user:
+        user.refresh_token_hash = None
+        user.refresh_token_expires = None
+        await db.flush()
+    _clear_refresh_cookie(response)
+    return LogoutResponse()
 
 
 @auth_router.post(

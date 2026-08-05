@@ -4,6 +4,7 @@ import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, Adm
 const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // отправляет httpOnly cookie с refresh токеном
 })
 
 // ---- Silent token refresh ----
@@ -59,16 +60,15 @@ api.interceptors.response.use(
     const failedConfig = err.config!
 
     try {
-      const refreshToken = localStorage.getItem('cityboost_refresh')
-      if (!refreshToken) throw new Error('No refresh token')
+      // Refresh token отправляется автоматически через httpOnly cookie
+      const { data } = await axios.post<LoginResponse>(
+        '/api/v1/auth/refresh',
+        {},
+        { withCredentials: true },
+      )
 
-      const { data } = await axios.post<LoginResponse>('/api/v1/auth/refresh', {
-        refresh_token: refreshToken,
-      })
-
-      // Store new tokens
+      // Store new access token
       localStorage.setItem('cityboost_token', data.access_token)
-      localStorage.setItem('cityboost_refresh', data.refresh_token)
 
       // Retry all queued requests
       const queue = pendingRequests.slice()
@@ -102,8 +102,8 @@ api.interceptors.response.use(
 
 function clearAuthAndRedirect() {
   localStorage.removeItem('cityboost_token')
-  localStorage.removeItem('cityboost_refresh')
   localStorage.removeItem('cityboost_user')
+  // Refresh cookie чистится через API /auth/logout (вызывается из стора)
   if (!window.location.hash.startsWith('#/login')) {
     window.location.hash = '#/login'
   }
@@ -120,9 +120,10 @@ export interface AuthAPI {
   updateProfile(data: Partial<{ name: string; current_password: string; new_password: string }>): Promise<User>
   forgotPassword(email: string): Promise<{ message: string }>
   resetPassword(token: string, password: string): Promise<{ message: string }>
-  refresh(refreshToken: string): Promise<LoginResponse>
+  refresh(): Promise<LoginResponse>
   verifyEmail(email: string, code: string): Promise<VerifyCodeResponse>
   resendCode(email: string): Promise<{ message: string }>
+  logout(): Promise<unknown>
 }
 
 export const authAPI: AuthAPI = {
@@ -144,14 +145,17 @@ export const authAPI: AuthAPI = {
   resetPassword(token, password) {
     return api.post('/auth/reset-password', { token, password }).then(r => r.data)
   },
-  refresh(refreshToken) {
-    return api.post('/auth/refresh', { refresh_token: refreshToken }).then(r => r.data)
+  refresh() {
+    return api.post('/auth/refresh', {}).then(r => r.data)
   },
   verifyEmail(email, code) {
     return api.post('/auth/verify-email', { email, code }).then(r => r.data)
   },
   resendCode(email) {
     return api.post('/auth/resend-code', { email }).then(r => r.data)
+  },
+  logout() {
+    return api.post('/auth/logout').then(r => r.data)
   },
 }
 

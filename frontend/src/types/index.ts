@@ -19,7 +19,6 @@ export interface User {
 
 export interface LoginResponse {
   access_token: string
-  refresh_token: string
   token_type: string
 }
 
@@ -30,7 +29,6 @@ export interface VerifyCodePayload {
 
 export interface VerifyCodeResponse {
   access_token: string
-  refresh_token: string
   token_type: string
   user: User
 }

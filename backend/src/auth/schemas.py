@@ -54,7 +54,6 @@ class VerifyEmailRequest(BaseModel):
 class VerifyCodeResponse(BaseModel):
     """Ответ с JWT после подтверждения email."""
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
     user: UserOut
 
@@ -65,15 +64,13 @@ class ResendCodeRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """Ответ с JWT токенами."""
+    """Ответ с JWT токеном (refresh токен — в httpOnly cookie)."""
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
 
 
-class RefreshRequest(BaseModel):
-    """Запрос на обновление access токена."""
-    refresh_token: str
+class LogoutResponse(BaseModel):
+    message: str = "Выход выполнен"
 
 
 class PaginatedUsers(BaseModel):

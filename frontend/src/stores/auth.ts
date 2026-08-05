@@ -6,7 +6,6 @@ import type { User } from '@/types'
 interface AuthState {
   user: User | null
   token: string | null
-  refreshToken: string | null
   loading: boolean
 }
 
@@ -14,7 +13,6 @@ export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: JSON.parse(localStorage.getItem('cityboost_user') || 'null'),
     token: localStorage.getItem('cityboost_token') || null,
-    refreshToken: localStorage.getItem('cityboost_refresh') || null,
     loading: false,
   }),
   getters: {
@@ -30,9 +28,8 @@ export const useAuthStore = defineStore('auth', {
       try {
         const data = await authAPI.login(email, password)
         this.token = data.access_token
-        this.refreshToken = data.refresh_token
         localStorage.setItem('cityboost_token', data.access_token)
-        localStorage.setItem('cityboost_refresh', data.refresh_token)
+        // Refresh token в httpOnly cookie — JS его не видит
         await this.fetchMe()
         return true
       } catch (err) {
@@ -53,14 +50,11 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async refreshTokens(): Promise<boolean> {
-      const currentRefreshToken = this.refreshToken || localStorage.getItem('cityboost_refresh')
-      if (!currentRefreshToken) return false
       try {
-        const data = await authAPI.refresh(currentRefreshToken)
+        // Refresh token отправляется через httpOnly cookie автоматически
+        const data = await authAPI.refresh()
         this.token = data.access_token
-        this.refreshToken = data.refresh_token
         localStorage.setItem('cityboost_token', data.access_token)
-        localStorage.setItem('cityboost_refresh', data.refresh_token)
         return true
       } catch {
         this.clearAuth()
@@ -83,11 +77,10 @@ export const useAuthStore = defineStore('auth', {
       try {
         const data = await authAPI.verifyEmail(email, code)
         this.token = data.access_token
-        this.refreshToken = data.refresh_token
         this.user = data.user
         localStorage.setItem('cityboost_token', data.access_token)
-        localStorage.setItem('cityboost_refresh', data.refresh_token)
         localStorage.setItem('cityboost_user', JSON.stringify(data.user))
+        // Refresh token в httpOnly cookie — JS его не видит
         return data.user
       } catch (err) {
         throw err
@@ -100,16 +93,16 @@ export const useAuthStore = defineStore('auth', {
       await authAPI.resendCode(email)
     },
 
-    logout(): void {
+    async logout(): Promise<void> {
+      // Вызываем API чтобы очистить refresh cookie на сервере
+      try { await authAPI.logout() } catch { /* неважно */ }
       this.clearAuth()
       router.push('/login')
     },
     clearAuth(): void {
       this.user = null
       this.token = null
-      this.refreshToken = null
       localStorage.removeItem('cityboost_token')
-      localStorage.removeItem('cityboost_refresh')
       localStorage.removeItem('cityboost_user')
     },
   },

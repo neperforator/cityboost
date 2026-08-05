@@ -79,7 +79,6 @@ services:
     volumes:
       - frontend-dist:/usr/share/nginx/html:ro
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/ssl.conf:/etc/nginx/conf.d/ssl.conf.example:ro
       - ./storage:/app/storage:ro
     depends_on:
       backend:
@@ -97,14 +96,6 @@ services:
       - frontend-dist:/dist
     networks:
       - cityboost-net
-
-  certbot:
-    image: certbot/certbot:v2.9.0
-    container_name: cityboost-certbot
-    volumes:
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 12h & wait $!; done;'"
 
 networks:
   cityboost-net:
