@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     def SMTP_ENABLED(self) -> bool:
         return bool(self.SMTP_HOST and self.SMTP_USER)
 
+    # --- Frontend ---
+    FRONTEND_URL: str = "http://localhost:5173"
+
     # --- Sentry ---
     SENTRY_DSN: str = ""
 

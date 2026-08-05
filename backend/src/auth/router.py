@@ -17,12 +17,15 @@ from src.auth.models import User
 from src.auth.schemas import (
     ForgotPasswordRequest,
     RefreshRequest,
+    ResendCodeRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserLoginRequest,
     UserOut,
     UserRegisterRequest,
     UserUpdateRequest,
+    VerifyCodeResponse,
+    VerifyEmailRequest,
 )
 from src.auth.service import AuthService
 from src.database import get_db
@@ -70,6 +73,12 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email, пароль или аккаунт заблокирован",
+        )
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Подтвердите email. Код отправлен на {user.email}",
         )
 
     access_token = service.create_access_token(
@@ -170,6 +179,63 @@ async def refresh(
     await db.flush()
 
     return TokenResponse(access_token=new_access_token, refresh_token=new_refresh_token)
+
+
+@auth_router.post(
+    "/verify-email",
+    response_model=VerifyCodeResponse,
+    summary="Подтвердить email",
+    description="Подтверждает email 6-значным кодом из письма. "
+    "При успехе возвращает JWT токены и данные пользователя (автологин).",
+)
+async def verify_email(
+    data: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db),
+) -> VerifyCodeResponse:
+    """Подтвердить email по коду из письма."""
+    service = AuthService(db)
+    user = await service.verify_email(data.email, data.code)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Неверный или просроченный код подтверждения",
+        )
+
+    access_token = service.create_access_token(
+        data={"sub": str(user.id), "role": user.role.value},
+    )
+    refresh_token = service.create_raw_refresh_token(user.id)
+    user.refresh_token_hash = service.hash_refresh_token(refresh_token)
+    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(
+        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
+    )
+    await db.flush()
+
+    # Обновляем объект для сериализации
+    await db.refresh(user)
+
+    return VerifyCodeResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=user,
+    )
+
+
+@auth_router.post(
+    "/resend-code",
+    status_code=status.HTTP_200_OK,
+    summary="Отправить код повторно",
+    description="Генерирует новый 6-значный код и отправляет на email. "
+    "Всегда возвращает 200 (не раскрывает существование email).",
+)
+async def resend_code(
+    data: ResendCodeRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Отправить новый код подтверждения на email."""
+    service = AuthService(db)
+    await service.resend_verification_code(data.email)
+    return {"message": "Новый код отправлен на указанный email"}
 
 
 @auth_router.get(

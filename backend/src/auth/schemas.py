@@ -39,9 +39,29 @@ class UserOut(BaseModel):
     email: str
     role: UserRole
     is_banned: bool
+    is_verified: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class VerifyEmailRequest(BaseModel):
+    """Запрос на подтверждение email."""
+    email: EmailStr = Field(..., description="Электронная почта")
+    code: str = Field(..., min_length=6, max_length=6, description="6-значный код из письма")
+
+
+class VerifyCodeResponse(BaseModel):
+    """Ответ с JWT после подтверждения email."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+class ResendCodeRequest(BaseModel):
+    """Запрос на повторную отправку кода."""
+    email: EmailStr = Field(..., description="Электронная почта")
 
 
 class TokenResponse(BaseModel):

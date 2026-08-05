@@ -42,7 +42,7 @@ watch(dark, () => {
 
 const toggleDark = () => { dark.value = !dark.value }
 
-const noHeaderRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
+const noHeaderRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email']
 const showHeader = () => !noHeaderRoutes.includes(route.path)
 
 onMounted(() => {

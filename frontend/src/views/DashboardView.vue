@@ -120,13 +120,14 @@ onMounted(() => {
       </button>
     </div>
 
-    <!-- Filters with global counts -->
-    <div class="flex flex-wrap gap-2 mb-6">
+    <!-- Filters with global counts (horizontal scroll on mobile) -->
+    <div class="flex flex-nowrap md:flex-wrap gap-2 mb-6 md:overflow-visible
+                overflow-x-auto pb-2 md:pb-0 scrollbar-none -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory">
       <button
         v-for="f in filters"
         :key="f.key"
         @click="setFilter(f.key)"
-        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 snap-start shrink-0 active:scale-95"
         :class="activeFilter === f.key
           ? 'bg-primary-600 text-white shadow-sm'
           : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'"

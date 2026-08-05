@@ -137,6 +137,10 @@ class TicketService:
         ticket = await self.repo.get_by_id_simple(self.db, ticket_id)
         if ticket is None:
             return None
+        if ticket.status in (TicketStatus.DONE, TicketStatus.CLOSED):
+            raise ValueError(
+                "Нельзя добавить комментарий к заявке со статусом «Выполнена» или «Закрыта»",
+            )
         return await self.comment_repo.create(self.db, ticket_id, author_id, text)
 
     async def add_file(
@@ -150,6 +154,10 @@ class TicketService:
         ticket = await self.repo.get_by_id_simple(self.db, ticket_id)
         if ticket is None:
             return None
+        if ticket.status in (TicketStatus.DONE, TicketStatus.CLOSED):
+            raise ValueError(
+                "Нельзя загрузить файл к заявке со статусом «Выполнена» или «Закрыта»",
+            )
         return await self.file_repo.create(self.db, ticket_id, file_path, file_size, mime_type)
 
     async def get_file_count(self, ticket_id: uuid.UUID) -> int:

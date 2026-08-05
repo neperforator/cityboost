@@ -10,6 +10,7 @@ export interface User {
   email: string
   role: 'user' | 'admin'
   is_banned: boolean
+  is_verified?: boolean
   created_at?: string
   updated_at?: string
 }
@@ -20,6 +21,18 @@ export interface LoginResponse {
   access_token: string
   refresh_token: string
   token_type: string
+}
+
+export interface VerifyCodePayload {
+  email: string
+  code: string
+}
+
+export interface VerifyCodeResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+  user: User
 }
 
 export interface UserUpdatePayload {

@@ -136,11 +136,5 @@ onUnmounted(() => {
       class="rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden z-0"
       :style="{ height }"
     ></div>
-
-    <!-- Coordinates display -->
-    <div v-if="modelValue.lat" class="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2">
-      <span>Широта: <strong>{{ modelValue.lat }}</strong></span>
-      <span>Долгота: <strong>{{ modelValue.lng }}</strong></span>
-    </div>
   </div>
 </template>

@@ -184,7 +184,13 @@ async def admin_add_comment(
 ) -> TicketCommentOut:
     """Добавить комментарий к заявке."""
     service = TicketService(db)
-    comment = await service.add_comment(ticket_id, admin.id, data.comment_text)
+    try:
+        comment = await service.add_comment(ticket_id, admin.id, data.comment_text)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
     return TicketCommentOut(

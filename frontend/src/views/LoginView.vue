@@ -2,13 +2,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useToast } from '@/composables/useToast'
 import { TicketIcon } from '@heroicons/vue/24/solid'
 import { ArrowRightIcon, EnvelopeIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
 
 const auth = useAuthStore()
 const router = useRouter()
-const toast = useToast()
 
 const email = ref('')
 const password = ref('')
@@ -21,10 +19,16 @@ async function handleLogin() {
   error.value = ''
   try {
     await auth.login(email.value, password.value)
-    toast.success('Добро пожаловать!')
     router.push(auth.isAdmin ? '/admin' : '/dashboard')
   } catch (err) {
-    error.value = (err as Error).message
+    const msg = (err as Error).message
+    if (msg.includes('Подтвердите email')) {
+      // Отправляем новый код и кидаем на верификацию
+      auth.resendCode(email.value).catch(() => {})
+      router.push('/verify-email?email=' + encodeURIComponent(email.value))
+      return
+    }
+    error.value = msg
   } finally {
     loading.value = false
   }
@@ -78,6 +82,7 @@ async function handleLogin() {
           <div v-if="error" class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg px-4 py-2.5 flex items-center gap-2">
             <span>{{ error }}</span>
           </div>
+
 
           <button type="submit" class="btn-primary w-full text-base py-3" :disabled="loading">
             <svg v-if="loading" class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>

@@ -70,8 +70,8 @@ class TicketRepository:
             return None
         ticket.status = new_status
         await db.flush()
-        await db.refresh(ticket)
-        return ticket
+        # Перезагружаем со связями, чтобы не было MissingGreenlet при сериализации
+        return await TicketRepository.get_by_id(db, ticket_id)
 
     @staticmethod
     async def assign(
@@ -85,8 +85,8 @@ class TicketRepository:
         if ticket.status == TicketStatus.NEW:
             ticket.status = TicketStatus.IN_WORK
         await db.flush()
-        await db.refresh(ticket)
-        return ticket
+        # Перезагружаем со связями, чтобы не было MissingGreenlet при сериализации
+        return await TicketRepository.get_by_id(db, ticket_id)
 
     @staticmethod
     async def list_by_user(

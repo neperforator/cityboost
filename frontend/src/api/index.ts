@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type AxiosResponse } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment, TicketHistoryEntry } from '@/types'
+import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -121,6 +121,8 @@ export interface AuthAPI {
   forgotPassword(email: string): Promise<{ message: string }>
   resetPassword(token: string, password: string): Promise<{ message: string }>
   refresh(refreshToken: string): Promise<LoginResponse>
+  verifyEmail(email: string, code: string): Promise<VerifyCodeResponse>
+  resendCode(email: string): Promise<{ message: string }>
 }
 
 export const authAPI: AuthAPI = {
@@ -144,6 +146,12 @@ export const authAPI: AuthAPI = {
   },
   refresh(refreshToken) {
     return api.post('/auth/refresh', { refresh_token: refreshToken }).then(r => r.data)
+  },
+  verifyEmail(email, code) {
+    return api.post('/auth/verify-email', { email, code }).then(r => r.data)
+  },
+  resendCode(email) {
+    return api.post('/auth/resend-code', { email }).then(r => r.data)
   },
 }
 

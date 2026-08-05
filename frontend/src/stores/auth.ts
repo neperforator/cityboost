@@ -45,7 +45,6 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       try {
         await authAPI.register(name, email, password)
-        await this.login(email, password)
         return true
       } catch (err) {
         throw err
@@ -79,6 +78,28 @@ export const useAuthStore = defineStore('auth', {
         return null
       }
     },
+    async verifyEmail(email: string, code: string): Promise<User | null> {
+      this.loading = true
+      try {
+        const data = await authAPI.verifyEmail(email, code)
+        this.token = data.access_token
+        this.refreshToken = data.refresh_token
+        this.user = data.user
+        localStorage.setItem('cityboost_token', data.access_token)
+        localStorage.setItem('cityboost_refresh', data.refresh_token)
+        localStorage.setItem('cityboost_user', JSON.stringify(data.user))
+        return data.user
+      } catch (err) {
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async resendCode(email: string): Promise<void> {
+      await authAPI.resendCode(email)
+    },
+
     logout(): void {
       this.clearAuth()
       router.push('/login')

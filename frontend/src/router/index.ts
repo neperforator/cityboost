@@ -85,6 +85,11 @@ const routes: Array<{ path: string; name?: string; component: () => Promise<unkn
     meta: { auth: true, admin: true },
   },
   {
+    path: '/verify-email',
+    name: 'VerifyEmail',
+    component: () => import('@/views/VerifyEmailView.vue'),
+  },
+  {
     path: '/about',
     name: 'About',
     component: () => import('@/views/AboutView.vue'),

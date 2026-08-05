@@ -44,6 +44,15 @@ class User(Base):
     is_banned: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False,
     )
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False,
+    )
+    verification_code: Mapped[str | None] = mapped_column(
+        String(6), nullable=True,
+    )
+    verification_code_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
     reset_token: Mapped[str | None] = mapped_column(
         String(255), unique=True, nullable=True, index=True,
     )

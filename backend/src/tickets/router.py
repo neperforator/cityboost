@@ -269,12 +269,18 @@ async def upload_file(
 
     # Сохранение в БД
     relative_path = f"uploads/tickets/{ticket_id}/{unique_filename}"
-    file_record = await service.add_file(
-        ticket_id=ticket_id,
-        file_path=relative_path,
-        file_size=file_size,
-        mime_type=file.content_type,
-    )
+    try:
+        file_record = await service.add_file(
+            ticket_id=ticket_id,
+            file_path=relative_path,
+            file_size=file_size,
+            mime_type=file.content_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
     return file_record
 
@@ -303,7 +309,13 @@ async def add_comment(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Только автор заявки или администратор может добавлять комментарии",
         )
-    comment = await service.add_comment(ticket_id, current_user.id, data.comment_text)
+    try:
+        comment = await service.add_comment(ticket_id, current_user.id, data.comment_text)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
     return TicketCommentOut(
         id=comment.id,
         ticket_id=comment.ticket_id,

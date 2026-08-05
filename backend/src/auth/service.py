@@ -97,6 +97,12 @@ class AuthService:
 
     # ---- Бизнес-логика ----
 
+    @staticmethod
+    def _generate_verification_code() -> str:
+        """Сгенерировать 6-значный код подтверждения."""
+        import random
+        return str(random.randint(100000, 999999))
+
     async def register(self, data: UserRegisterRequest) -> User:
         """Регистрация нового пользователя."""
         existing = await self.repo.get_by_email(self.db, data.email)
@@ -119,7 +125,70 @@ class AuthService:
 
         password_hash = self.hash_password(password)
         user = await self.repo.create(self.db, data.name, data.email, password_hash)
+
+        # Генерируем код подтверждения
+        code = self._generate_verification_code()
+        user.verification_code = code
+        user.verification_code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+        await self.db.flush()
+
+        # Отправляем письмо
+        from src.notifications.email import get_email_service
+        email_service = get_email_service()
+        await email_service.send_verification_code(
+            email=data.email,
+            code=code,
+            name=data.name,
+        )
+        if settings.DEBUG:
+            logger.info("DEBUG: Verification code for %s → %s", data.email, code)
+
         return user
+
+    async def verify_email(self, email: str, code: str) -> User | None:
+        """Подтвердить email по коду. Возвращает пользователя или None."""
+        user = await self.repo.get_by_email(self.db, email)
+        if user is None:
+            return None
+        if user.is_verified:
+            return user  # уже подтверждён
+        if user.verification_code is None or user.verification_code_expires is None:
+            return None
+        if user.verification_code_expires < datetime.now(timezone.utc):
+            return None
+        if user.verification_code != code:
+            return None
+
+        user.is_verified = True
+        user.verification_code = None
+        user.verification_code_expires = None
+        await self.db.flush()
+        return user
+
+    async def resend_verification_code(self, email: str) -> bool:
+        """Отправить новый код подтверждения на email."""
+        user = await self.repo.get_by_email(self.db, email)
+        if user is None:
+            return True  # не раскрываем
+        if user.is_verified:
+            return True
+
+        code = self._generate_verification_code()
+        user.verification_code = code
+        user.verification_code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+        await self.db.flush()
+
+        from src.notifications.email import get_email_service
+        email_service = get_email_service()
+        await email_service.send_verification_code(
+            email=email,
+            code=code,
+            name=user.name,
+        )
+        if settings.DEBUG:
+            logger.info("DEBUG: New verification code for %s → %s", email, code)
+
+        return True
 
     async def authenticate(self, email: str, password: str) -> User | None:
         """Аутентификация по email и паролю."""
@@ -209,13 +278,13 @@ class AuthService:
             email=email,
             token=token,
             name=user.name,
-            base_url="",
+            base_url=settings.FRONTEND_URL,
         )
 
         if settings.DEBUG:
             logger.info(
-                "DEBUG: Reset link for %s → #/reset-password?token=%s",
-                email, token,
+                "DEBUG: Reset link for %s → %s/#/reset-password?token=%s",
+                email, settings.FRONTEND_URL, token,
             )
         return True
 

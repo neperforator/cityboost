@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Bars3Icon, XMarkIcon, SunIcon, MoonIcon, ChevronDownIcon, ClipboardDocumentListIcon, UserCircleIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, UsersIcon, ClockIcon } from '@heroicons/vue/24/outline'
@@ -51,6 +51,13 @@ function onClickOutside(e: MouseEvent) {
     adminDropdownOpen.value = false
   }
 }
+
+// Lock body scroll when mobile menu is open (only on mobile)
+watch(mobileOpen, (val) => {
+  if (window.innerWidth < 768) {
+    document.documentElement.classList.toggle('overflow-hidden', val)
+  }
+})
 
 onMounted(() => document.addEventListener('click', onClickOutside))
 onUnmounted(() => document.removeEventListener('click', onClickOutside))
@@ -140,44 +147,116 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
             </button>
           </div>
 
-          <button @click="mobileOpen = !mobileOpen" class="md:hidden p-2 rounded-lg text-primary-200 hover:text-white hover:bg-white/10">
-            <Bars3Icon v-if="!mobileOpen" class="w-6 h-6" />
-            <XMarkIcon v-else class="w-6 h-6" />
+          <button @click="mobileOpen = !mobileOpen" class="md:hidden p-2 rounded-lg text-primary-200 hover:text-white hover:bg-white/10 active:scale-90 transition-all duration-200">
+            <div class="relative w-6 h-6 flex items-center justify-center">
+              <Transition name="burger-icon">
+                <Bars3Icon v-if="!mobileOpen" key="bars" class="w-6 h-6 absolute" />
+                <XMarkIcon v-else key="xmark" class="w-6 h-6 absolute" />
+              </Transition>
+            </div>
           </button>
         </div>
       </div>
 
-      <!-- Mobile menu -->
-      <div v-if="mobileOpen" class="md:hidden pb-4 border-t border-primary-600/30 pt-3">
-        <div class="flex flex-col gap-1">
-          <router-link to="/dashboard" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium" :class="activeRoute === '/dashboard' ? 'text-white bg-white/15' : 'text-primary-200 hover:text-white hover:bg-white/10'">
-            <ClipboardDocumentListIcon class="w-4 h-4" /> Мои заявки
-          </router-link>
-          <template v-if="auth.isAdmin">
-            <p class="px-3 pt-2 pb-1 text-xs font-semibold text-primary-300/60 uppercase tracking-wider">Админ-панель</p>
-            <router-link to="/admin" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10">
-              <ClipboardDocumentListIcon class="w-4 h-4" /> Все заявки
-            </router-link>
-            <router-link to="/admin/users" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10">
-              <UsersIcon class="w-4 h-4" /> Пользователи
-            </router-link>
-            <router-link to="/admin/audit" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10">
-              <ClockIcon class="w-4 h-4" /> Аудит-лог
-            </router-link>
-          </template>
-          <router-link to="/profile" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10">
-            <UserCircleIcon class="w-4 h-4" /> Профиль
-          </router-link>
-          <router-link to="/about" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10">
-            <TicketIcon class="w-4 h-4" /> О проекте
-          </router-link>
+      <!-- Mobile menu (smooth slide) -->
+      <Transition name="mobile-menu">
+        <div v-if="mobileOpen" class="md:hidden border-t border-primary-600/30 overflow-hidden">
+          <div class="pb-4 pt-3 mobile-menu-content">
+            <div class="flex flex-col gap-1">
+              <router-link to="/dashboard" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-[0.97]" :class="activeRoute === '/dashboard' ? 'text-white bg-white/15' : 'text-primary-200 hover:text-white hover:bg-white/10'">
+                <ClipboardDocumentListIcon class="w-4 h-4" /> Мои заявки
+              </router-link>
+              <template v-if="auth.isAdmin">
+                <p class="px-3 pt-2 pb-1 text-xs font-semibold text-primary-300/60 uppercase tracking-wider">Админ-панель</p>
+                <router-link to="/admin" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                  <ClipboardDocumentListIcon class="w-4 h-4" /> Все заявки
+                </router-link>
+                <router-link to="/admin/users" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                  <UsersIcon class="w-4 h-4" /> Пользователи
+                </router-link>
+                <router-link to="/admin/audit" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                  <ClockIcon class="w-4 h-4" /> Аудит-лог
+                </router-link>
+              </template>
+              <router-link to="/profile" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                <UserCircleIcon class="w-4 h-4" /> Профиль
+              </router-link>
+              <router-link to="/about" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                <TicketIcon class="w-4 h-4" /> О проекте
+              </router-link>
+            </div>
+          </div>
         </div>
-      </div>
+      </Transition>
     </div>
+
+    <!-- Mobile overlay backdrop -->
+    <Transition name="overlay">
+      <div
+        v-if="mobileOpen"
+        class="md:hidden fixed inset-0 bg-black/40 z-[-1]"
+        @click="mobileOpen = false"
+      />
+    </Transition>
   </header>
 </template>
 
 <style scoped>
 .dropdown-enter-active, .dropdown-leave-active { transition: all 0.2s ease; }
 .dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: translateY(-8px); }
+
+/* === Mobile menu smooth slide === */
+.mobile-menu-enter-active,
+.mobile-menu-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 500px;
+  opacity: 1;
+}
+.mobile-menu-enter-active .mobile-menu-content,
+.mobile-menu-leave-active .mobile-menu-content {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mobile-menu-enter-from,
+.mobile-menu-leave-to {
+  max-height: 0;
+  opacity: 0;
+  border-top-width: 0 !important;
+}
+.mobile-menu-enter-from .mobile-menu-content,
+.mobile-menu-leave-to .mobile-menu-content {
+  transform: translateY(-8px);
+  opacity: 0;
+}
+.mobile-menu-enter-to .mobile-menu-content,
+.mobile-menu-leave-from .mobile-menu-content {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* === Burger icon rotation === */
+.burger-icon-enter-active,
+.burger-icon-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.burger-icon-enter-from {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.7);
+}
+.burger-icon-leave-to {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.7);
+}
+.burger-icon-leave-active {
+  position: absolute;
+}
+
+/* === Backdrop overlay === */
+.overlay-enter-active,
+.overlay-leave-active {
+  transition: opacity 0.3s ease;
+}
+.overlay-enter-from,
+.overlay-leave-to {
+  opacity: 0;
+}
 </style>

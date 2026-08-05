@@ -2,13 +2,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useToast } from '@/composables/useToast'
 import { TicketIcon } from '@heroicons/vue/24/solid'
 import { UserPlusIcon, UserIcon, EnvelopeIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
 
 const auth = useAuthStore()
 const router = useRouter()
-const toast = useToast()
 
 const name = ref('')
 const email = ref('')
@@ -25,8 +23,7 @@ async function handleRegister() {
   error.value = ''
   try {
     await auth.register(name.value, email.value, password.value)
-    toast.success('Аккаунт создан! Добро пожаловать!')
-    router.push('/dashboard')
+    router.push('/verify-email?email=' + encodeURIComponent(email.value))
   } catch (err) {
     error.value = (err as Error).message
   } finally {

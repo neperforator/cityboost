@@ -117,6 +117,34 @@ class EmailService:
 </html>"""
         return await self.send_email(email, "CityBoost — Сброс пароля", html)
 
+    async def send_verification_code(self, email: str, code: str, name: str) -> bool:
+        """Отправить код подтверждения email."""
+        html = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #f4f4f6; padding: 40px 20px;">
+  <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <div style="text-align: center; font-size: 40px; margin-bottom: 16px;">🏙️</div>
+    <h2 style="text-align: center; color: #1e1e2f; margin: 0 0 8px;">Подтверждение email</h2>
+    <p style="color: #6b7280; font-size: 14px; text-align: center;">Здравствуйте, <strong>{name}</strong>!</p>
+    <p style="color: #6b7280; font-size: 14px; text-align: center;">
+      Ваш код для подтверждения email в CityBoost:
+    </p>
+    <div style="text-align: center; margin: 24px 0;">
+      <div style="display: inline-block; background: #f0f4ff; color: #1e1e2f; font-size: 36px;
+                  font-weight: 700; letter-spacing: 12px; padding: 16px 32px;
+                  border-radius: 12px; border: 2px dashed #4f46e5;">
+        {code}
+      </div>
+    </div>
+    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+      Код действителен 10 минут. Если вы не регистрировались в CityBoost, проигнорируйте это письмо.
+    </p>
+  </div>
+</body>
+</html>"""
+        return await self.send_email(email, "CityBoost — Код подтверждения", html)
+
 
 # Экземпляр по умолчанию, инициализируется настройками
 default_email_service: EmailService | None = None

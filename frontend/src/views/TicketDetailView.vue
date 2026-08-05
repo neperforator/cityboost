@@ -167,7 +167,6 @@ onUnmounted(() => { if (map) map.remove() })
           <MapPinIcon class="w-5 h-5 text-gray-400" />
           Местоположение
         </h3>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{{ ticket.latitude }}, {{ ticket.longitude }}</p>
         <div id="ticket-map" class="h-64 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-0"></div>
       </div>
 
@@ -191,7 +190,7 @@ onUnmounted(() => { if (map) map.remove() })
           </div>
         </div>
 
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <div v-if="ticket.status !== 'DONE' && ticket.status !== 'CLOSED'" class="border-t border-gray-200 dark:border-gray-700 pt-4">
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Загрузить файл (JPEG/PNG)</h4>
           <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <label class="btn-secondary btn-sm cursor-pointer inline-flex items-center gap-1.5">
@@ -205,6 +204,7 @@ onUnmounted(() => { if (map) map.remove() })
             </button>
           </div>
         </div>
+        <div v-else class="border-t border-gray-200 dark:border-gray-700 pt-4" />
       </div>
 
       <!-- Comments -->
@@ -239,7 +239,7 @@ onUnmounted(() => { if (map) map.remove() })
         </div>
 
         <!-- Comment form -->
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <div v-if="ticket.status !== 'DONE' && ticket.status !== 'CLOSED'" class="border-t border-gray-200 dark:border-gray-700 pt-4">
           <div class="relative">
             <textarea v-model="commentText" class="form-textarea text-sm" rows="2" maxlength="2000" placeholder="Добавить комментарий..."></textarea>
             <span class="absolute bottom-2 right-3 text-xs text-gray-400">{{ commentText.length }}/2000</span>
@@ -248,6 +248,7 @@ onUnmounted(() => { if (map) map.remove() })
             {{ commenting ? 'Отправка...' : 'Отправить комментарий' }}
           </button>
         </div>
+        <div v-else class="border-t border-gray-200 dark:border-gray-700 pt-4" />
       </div>
     </template>
     <ImageLightbox ref="lightboxRef" />

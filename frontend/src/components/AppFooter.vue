@@ -14,7 +14,7 @@ import { TicketIcon } from '@heroicons/vue/24/solid'
           <span class="text-gray-300 dark:text-gray-600">·</span>
           <span class="text-gray-400 dark:text-gray-500">Система городских заявок</span>
         </div>
-        <p class="text-gray-400 dark:text-gray-500 text-xs">© {{ new Date().getFullYear() }} CityBoost</p>
+        <p class="text-gray-400 dark:text-gray-500 text-xs">© {{ new Date().getFullYear() }} CityBoost </br> Все права защищены.</p>
       </div>
     </div>
   </footer>

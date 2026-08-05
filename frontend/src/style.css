@@ -256,3 +256,60 @@
   opacity: 0;
   transform: translateY(-8px);
 }
+
+/* === MOBILE: Prevent rubber-band scrolling above header / below footer === */
+/* Desktop stays untouched — only applies below md breakpoint (767px) */
+@media (max-width: 767px) {
+  html {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;       /* iOS Safari needs this to truly kill bounce */
+    width: 100%;
+  }
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior-y: contain;
+  }
+  #app {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  /* Override Tailwind's min-h-screen so flex layout fills the scroll container */
+  #app > .flex-col {
+    min-height: 100%;
+    height: auto;
+  }
+}
+
+/* === MOBILE INTERACTIONS === */
+@media (max-width: 767px) {
+  .card-hover:active {
+    transform: scale(0.99);
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Safe area inset for modern phones (notch / home indicator) */
+@media (max-width: 767px) {
+  main {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  footer {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* === Hide scrollbar for horizontally scrollable elements === */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE & Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
+}
