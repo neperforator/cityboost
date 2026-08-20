@@ -46,6 +46,10 @@ class Ticket(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
+    close_reason: Mapped[str | None] = mapped_column(
+        Text, nullable=True,
+        comment="Причина закрытия заявки (устанавливается при CLOSED)",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True,
     )
@@ -102,8 +106,12 @@ class TicketHistory(Base):
     changed_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False,
     )
+    action: Mapped[str] = mapped_column(
+        String(30), default="STATUS_CHANGED", nullable=False, index=True,
+    )
     old_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     new_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
@@ -112,7 +120,7 @@ class TicketHistory(Base):
     changed_by_user = relationship("User", back_populates="history_changes")
 
     def __repr__(self) -> str:
-        return f"<TicketHistory {self.old_status} -> {self.new_status}>"
+        return f"<TicketHistory {self.action} {self.old_status} -> {self.new_status}>"
 
 
 class TicketComment(Base):

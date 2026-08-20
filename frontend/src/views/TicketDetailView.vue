@@ -9,7 +9,7 @@ import SkeletonDetail from '@/components/SkeletonDetail.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import L from 'leaflet'
 
-import { ArrowLeftIcon, ArrowUpTrayIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, UserCircleIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, ArrowUpTrayIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, UserCircleIcon, ShieldCheckIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 
 // Fix default Leaflet marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -129,10 +129,11 @@ onUnmounted(() => { if (map) map.remove() })
 
     <!-- Error -->
     <div v-else-if="error" class="card p-8 text-center">
-      <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-        <span class="text-2xl">😕</span>
+      <div class="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+        <ExclamationTriangleIcon class="w-8 h-8 text-red-500" />
       </div>
-      <p class="text-red-500 mb-4">{{ error }}</p>
+      <p class="font-medium text-gray-900 dark:text-white mb-1">Не удалось загрузить заявку</p>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ error }}</p>
       <router-link to="/dashboard" class="btn-primary">Вернуться к заявкам</router-link>
     </div>
 
@@ -159,6 +160,14 @@ onUnmounted(() => { if (map) map.remove() })
 
         <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Описание</h3>
         <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{{ ticket.description }}</p>
+
+        <div v-if="ticket.status === 'CLOSED' && ticket.close_reason" class="mt-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40 p-4">
+          <h3 class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <CheckCircleIcon class="w-4 h-4" />
+            Причина закрытия
+          </h3>
+          <p class="text-sm text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap leading-relaxed">{{ ticket.close_reason }}</p>
+        </div>
       </div>
 
       <!-- Map -->
@@ -180,7 +189,12 @@ onUnmounted(() => { if (map) map.remove() })
         <div v-if="ticket.files?.length" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
           <div v-for="(f, fi) in ticket.files" :key="f.id"
             @click="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
-            class="group relative rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800/50 hover:shadow-md transition-shadow"
+            @keydown.enter.prevent="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
+            @keydown.space.prevent="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
+            :role="f.mime_type?.startsWith('image/') ? 'button' : undefined"
+            :tabindex="f.mime_type?.startsWith('image/') ? 0 : -1"
+            :aria-label="f.mime_type?.startsWith('image/') ? `Открыть фото ${f.file_path.split('/').pop()}` : undefined"
+            class="group relative rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800/50 hover:shadow-md transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             :class="{ 'cursor-pointer': f.mime_type?.startsWith('image/'), 'cursor-default': !f.mime_type?.startsWith('image/') }">
             <img v-if="f.mime_type?.startsWith('image/')" :src="`/storage/${f.file_path}`" class="w-full h-32 object-cover" loading="lazy" />
             <div v-else class="h-32 flex items-center justify-center text-gray-400">

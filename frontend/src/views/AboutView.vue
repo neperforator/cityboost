@@ -60,7 +60,7 @@ const techStack = ['Vue 3', 'Tailwind CSS', 'Leaflet.js', 'FastAPI', 'PostgreSQL
       <!-- CTA -->
       <div v-if="auth.isAuthenticated" class="card p-6 text-center">
         <p class="text-gray-500 dark:text-gray-400 mb-4">Готовы сообщить о проблеме?</p>
-        <router-link to="/tickets/create" class="btn-primary">
+        <router-link to="/tickets/create" class="btn-accent">
           <PlusCircleIcon class="w-5 h-5" />
           Создать заявку
         </router-link>

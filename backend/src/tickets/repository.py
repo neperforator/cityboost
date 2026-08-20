@@ -62,13 +62,20 @@ class TicketRepository:
 
     @staticmethod
     async def update_status(
-        db: AsyncSession, ticket_id: uuid.UUID, new_status: TicketStatus,
+        db: AsyncSession,
+        ticket_id: uuid.UUID,
+        new_status: TicketStatus,
+        close_reason: str | None = None,
     ) -> Ticket | None:
         """Обновить статус заявки."""
         ticket = await TicketRepository.get_by_id_simple(db, ticket_id)
         if ticket is None:
             return None
         ticket.status = new_status
+        if new_status == TicketStatus.CLOSED:
+            ticket.close_reason = close_reason
+        else:
+            ticket.close_reason = None
         await db.flush()
         # Перезагружаем со связями, чтобы не было MissingGreenlet при сериализации
         return await TicketRepository.get_by_id(db, ticket_id)
@@ -216,22 +223,26 @@ class TicketFileRepository:
 
 
 class TicketHistoryRepository:
-    """Репозиторий для истории изменений статуса."""
+    """Репозиторий для истории изменений заявки."""
 
     @staticmethod
     async def create(
         db: AsyncSession,
         ticket_id: uuid.UUID,
         changed_by: uuid.UUID,
+        action: str,
         old_status: str | None,
         new_status: str,
+        details: str | None = None,
     ) -> TicketHistory:
         """Создать запись в истории."""
         entry = TicketHistory(
             ticket_id=ticket_id,
             changed_by=changed_by,
+            action=action,
             old_status=old_status,
             new_status=new_status,
+            details=details,
         )
         db.add(entry)
         await db.flush()

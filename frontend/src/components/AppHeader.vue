@@ -2,7 +2,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { Bars3Icon, XMarkIcon, SunIcon, MoonIcon, ChevronDownIcon, ClipboardDocumentListIcon, UserCircleIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, UsersIcon, ClockIcon } from '@heroicons/vue/24/outline'
+import { Bars3Icon, XMarkIcon, SunIcon, MoonIcon, ChevronDownIcon, ClipboardDocumentListIcon, UserCircleIcon, ArrowRightOnRectangleIcon, ShieldCheckIcon, UsersIcon, ClockIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { TicketIcon } from '@heroicons/vue/24/solid'
 
 defineProps({ dark: Boolean })
@@ -64,15 +64,15 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 bg-primary-700 dark:bg-primary-900 shadow-lg border-b border-primary-600/50 dark:border-primary-800/50">
+  <header class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200/70 dark:border-gray-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
       <div class="flex items-center justify-between h-16">
         <!-- Logo -->
-        <router-link to="/dashboard" class="flex items-center gap-2.5 text-white font-bold text-lg tracking-tight hover:opacity-90 transition-opacity">
-          <div class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+        <router-link to="/dashboard" class="flex items-center gap-2.5 font-display text-xl font-extrabold tracking-tight text-gray-900 dark:text-white hover:opacity-90 transition-opacity">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-sm flex items-center justify-center">
             <TicketIcon class="w-5 h-5 text-white" />
           </div>
-          <span class="font-extrabold text-xl">CityBoost</span>
+          <span>CityBoost</span>
         </router-link>
 
         <!-- Desktop nav -->
@@ -81,10 +81,10 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
             v-for="link in navLinks"
             :key="link.to"
             :to="link.to"
-            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             :class="activeRoute === link.to
-              ? 'text-white bg-white/15'
-              : 'text-primary-200 hover:text-white hover:bg-white/10'"
+              ? 'text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'"
           >
             <component :is="link.icon" class="w-4 h-4" />
             {{ link.label }}
@@ -94,10 +94,13 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
           <div v-if="auth.isAdmin" id="admin-dropdown" class="relative">
             <button
               @click.stop="adminDropdownOpen = !adminDropdownOpen"
-              class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+              :aria-expanded="adminDropdownOpen"
+              aria-haspopup="menu"
+              aria-controls="admin-dropdown-menu"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
               :class="isAdminActive()
-                ? 'text-white bg-white/15'
-                : 'text-primary-200 hover:text-white hover:bg-white/10'"
+                ? 'text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'"
             >
               <ShieldCheckIcon class="w-4 h-4" />
               Админка
@@ -106,7 +109,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 
             <!-- Dropdown -->
             <Transition name="dropdown">
-              <div v-if="adminDropdownOpen" class="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-dropdown border border-gray-200 dark:border-gray-700 py-2 overflow-hidden">
+              <div v-if="adminDropdownOpen" id="admin-dropdown-menu" role="menu" class="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-2xl shadow-dropdown border border-gray-200 dark:border-gray-700 py-2 overflow-hidden">
                 <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
                   <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Админ-панель</p>
                 </div>
@@ -115,7 +118,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
                   :key="link.to"
                   :to="link.to"
                   @click="go(link.to)"
-                  class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-inset"
                   :class="activeRoute === link.to ? 'bg-primary-50 dark:bg-primary-900/20' : ''"
                 >
                   <component :is="link.icon" class="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
@@ -129,25 +132,34 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
           </div>
         </nav>
 
-        <!-- Right side: dark mode + user -->
+        <!-- Right side: CTA, dark mode, user -->
         <div class="flex items-center gap-2">
-          <button @click="$emit('toggleDark')" class="p-2 rounded-lg text-primary-200 hover:text-white hover:bg-white/10 transition-colors" :title="dark ? 'Светлая тема' : 'Тёмная тема'">
+          <button @click="$emit('toggleDark')" class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40" :title="dark ? 'Светлая тема' : 'Тёмная тема'" :aria-label="dark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'">
             <SunIcon v-if="dark" class="w-5 h-5" />
             <MoonIcon v-else class="w-5 h-5" />
           </button>
 
+          <router-link
+            v-if="auth.isAuthenticated"
+            to="/tickets/create"
+            class="hidden md:inline-flex btn-accent btn-sm"
+          >
+            <PlusIcon class="w-4 h-4" />
+            Новая заявка
+          </router-link>
+
           <div v-if="auth.isAuthenticated" class="flex items-center gap-2">
-            <router-link to="/profile" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-primary-200 hover:text-white hover:bg-white/10 transition-colors">
-              <span class="w-7 h-7 rounded-full bg-primary-500 flex items-center justify-center text-xs font-bold text-white">{{ initials }}</span>
+            <router-link to="/profile" class="hidden sm:flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <span class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-xs font-bold text-white">{{ initials }}</span>
               <span class="hidden lg:inline">{{ auth.userName }}</span>
             </router-link>
-            <button @click="auth.logout()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 border border-primary-500/30 hover:border-primary-400/50 transition-colors">
+            <button @click="auth.logout()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
               <ArrowRightOnRectangleIcon class="w-4 h-4" />
               <span class="hidden sm:inline">Выйти</span>
             </button>
           </div>
 
-          <button @click="mobileOpen = !mobileOpen" class="md:hidden p-2 rounded-lg text-primary-200 hover:text-white hover:bg-white/10 active:scale-90 transition-all duration-200">
+          <button @click="mobileOpen = !mobileOpen" class="md:hidden p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40" :aria-label="mobileOpen ? 'Закрыть меню' : 'Открыть меню'" :aria-expanded="mobileOpen" aria-controls="mobile-menu">
             <div class="relative w-6 h-6 flex items-center justify-center">
               <Transition name="burger-icon">
                 <Bars3Icon v-if="!mobileOpen" key="bars" class="w-6 h-6 absolute" />
@@ -160,28 +172,37 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 
       <!-- Mobile menu (smooth slide) -->
       <Transition name="mobile-menu">
-        <div v-if="mobileOpen" class="md:hidden border-t border-primary-600/30 overflow-hidden">
+        <div v-if="mobileOpen" id="mobile-menu" class="md:hidden border-t border-gray-200 dark:border-gray-800 overflow-hidden">
           <div class="pb-4 pt-3 mobile-menu-content">
             <div class="flex flex-col gap-1">
-              <router-link to="/dashboard" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-[0.97]" :class="activeRoute === '/dashboard' ? 'text-white bg-white/15' : 'text-primary-200 hover:text-white hover:bg-white/10'">
+              <router-link
+                v-if="auth.isAuthenticated"
+                to="/tickets/create"
+                @click="mobileOpen = false"
+                class="btn-accent w-full justify-center mb-2"
+              >
+                <PlusIcon class="w-5 h-5" />
+                Новая заявка
+              </router-link>
+              <router-link to="/dashboard" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40" :class="activeRoute === '/dashboard' ? 'text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'">
                 <ClipboardDocumentListIcon class="w-4 h-4" /> Мои заявки
               </router-link>
               <template v-if="auth.isAdmin">
-                <p class="px-3 pt-2 pb-1 text-xs font-semibold text-primary-300/60 uppercase tracking-wider">Админ-панель</p>
-                <router-link to="/admin" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                <p class="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Админ-панель</p>
+                <router-link to="/admin" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
                   <ClipboardDocumentListIcon class="w-4 h-4" /> Все заявки
                 </router-link>
-                <router-link to="/admin/users" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                <router-link to="/admin/users" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
                   <UsersIcon class="w-4 h-4" /> Пользователи
                 </router-link>
-                <router-link to="/admin/audit" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+                <router-link to="/admin/audit" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
                   <ClockIcon class="w-4 h-4" /> Аудит-лог
                 </router-link>
               </template>
-              <router-link to="/profile" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+              <router-link to="/profile" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
                 <UserCircleIcon class="w-4 h-4" /> Профиль
               </router-link>
-              <router-link to="/about" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-200 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]">
+              <router-link to="/about" @click="mobileOpen = false" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
                 <TicketIcon class="w-4 h-4" /> О проекте
               </router-link>
             </div>

@@ -25,8 +25,9 @@ from src.tickets.schemas import (
     TicketOut,
     TicketOutDetail,
     TicketStats,
+    TicketStatusChangeRequest,
 )
-from src.tickets.service import TicketService
+from src.tickets.service import _status_label, TicketService
 
 admin_router = APIRouter(
     prefix="/api/v1/admin/tickets",
@@ -120,24 +121,36 @@ async def admin_get_ticket(
     "/{ticket_id}/status",
     response_model=TicketOut,
     summary="Изменить статус заявки",
-    description="Меняет статус заявки и автоматически логирует изменение в TicketHistory.",
+    description="Меняет статус заявки и автоматически логирует изменение в TicketHistory. "
+    "При статусе CLOSED требуется указать причину закрытия (close_reason).",
 )
 async def admin_change_status(
     ticket_id: uuid.UUID,
-    new_status: TicketStatus = Query(..., description="Новый статус"),
+    data: TicketStatusChangeRequest,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_user),
 ) -> TicketOut:
     """Изменить статус заявки с логированием."""
     service = TicketService(db)
-    ticket = await service.change_status(ticket_id, new_status, admin.id)
+    try:
+        ticket = await service.change_status(
+            ticket_id, data.new_status, admin.id, close_reason=data.close_reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
 
     # Аудит
+    details = f"Статус заявки «{ticket.title}» изменён на {_status_label(data.new_status.value)}"
+    if data.new_status == TicketStatus.CLOSED:
+        details += f". Причина: {ticket.close_reason}"
     await log_admin_action(
         db, admin.id, "change_ticket_status", "ticket", ticket_id,
-        f"Статус изменён на {new_status.value}",
+        ticket.title, details,
     )
 
     return ticket
@@ -156,14 +169,15 @@ async def admin_assign_ticket(
 ) -> TicketOut:
     """Назначить заявку на текущего администратора."""
     service = TicketService(db)
-    ticket = await service.assign_ticket(ticket_id, admin.id)
+    ticket = await service.assign_ticket(ticket_id, admin.id, admin.name)
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
 
     # Аудит
     await log_admin_action(
         db, admin.id, "assign_ticket", "ticket", ticket_id,
-        f"Заявка назначена на администратора {admin.name}",
+        ticket.title,
+        f"Заявка «{ticket.title}» назначена на администратора {admin.name}",
     )
 
     return ticket

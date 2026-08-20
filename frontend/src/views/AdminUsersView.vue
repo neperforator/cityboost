@@ -34,10 +34,10 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
 const statCards = computed(() => [
-  { key: 'all', label: 'Все', count: stats.value.total, icon: UsersIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500', role: '', banned: undefined },
-  { key: 'admins', label: 'Администраторы', count: stats.value.admins, icon: ShieldCheckIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500', role: 'admin', banned: undefined },
-  { key: 'users', label: 'Пользователи', count: stats.value.users, icon: UserCircleIcon, color: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-500', role: 'user', banned: undefined },
-  { key: 'banned', label: 'Заблокированы', count: stats.value.banned, icon: NoSymbolIcon, color: 'text-red-600 dark:text-red-400', ring: 'ring-red-500', role: '', banned: true },
+  { key: 'all', label: 'Все', count: stats.value.total, icon: UsersIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500', role: '', banned: undefined, bg: 'bg-primary-50 dark:bg-primary-900/30' },
+  { key: 'admins', label: 'Администраторы', count: stats.value.admins, icon: ShieldCheckIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500', role: 'admin', banned: undefined, bg: 'bg-primary-50 dark:bg-primary-900/30' },
+  { key: 'users', label: 'Пользователи', count: stats.value.users, icon: UserCircleIcon, color: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-500', role: 'user', banned: undefined, bg: 'bg-blue-50 dark:bg-blue-900/30' },
+  { key: 'banned', label: 'Заблокированы', count: stats.value.banned, icon: NoSymbolIcon, color: 'text-red-600 dark:text-red-400', ring: 'ring-red-500', role: '', banned: true, bg: 'bg-red-50 dark:bg-red-900/30' },
 ])
 
 function isActive(key: string) {
@@ -156,10 +156,10 @@ onMounted(() => {
         v-for="s in statCards"
         :key="s.key"
         @click="setFilter(s.role, s.banned)"
-        class="stat-card hover:shadow-md transition-shadow cursor-pointer"
+        class="stat-card hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2"
         :class="isActive(s.key) ? `ring-2 ${s.ring}` : ''"
       >
-        <div class="stat-icon bg-primary-50 dark:bg-primary-900/30">
+        <div class="stat-icon" :class="s.bg">
           <component :is="s.icon" class="w-5 h-5" :class="s.color" />
         </div>
         <div>

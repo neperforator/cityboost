@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type AxiosResponse } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse } from '@/types'
+import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -236,7 +236,7 @@ export const userAPI: UserAPI = {
 export interface AdminAPI {
   listTickets(params?: TicketFilters): Promise<PaginatedResponse<Ticket>>
   getTicket(id: string): Promise<Ticket>
-  changeStatus(id: string, status: string): Promise<Ticket>
+  changeStatus(id: string, status: TicketStatus, closeReason?: string): Promise<Ticket>
   assign(id: string): Promise<Ticket>
   addComment(id: string, text: string): Promise<TicketComment>
   getHistory(id: string): Promise<TicketHistoryEntry[]>
@@ -255,8 +255,10 @@ export const adminAPI: AdminAPI = {
   getTicket(id) {
     return api.get(`/admin/tickets/${id}`).then(r => r.data)
   },
-  changeStatus(id, status) {
-    return api.patch(`/admin/tickets/${id}/status?new_status=${status}`).then(r => r.data)
+  changeStatus(id, status, closeReason) {
+    const payload: TicketStatusChangePayload = { new_status: status }
+    if (closeReason) payload.close_reason = closeReason
+    return api.patch(`/admin/tickets/${id}/status`, payload).then(r => r.data)
   },
   assign(id) {
     return api.patch(`/admin/tickets/${id}/assign`).then(r => r.data)

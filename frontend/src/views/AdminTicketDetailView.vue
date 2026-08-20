@@ -5,12 +5,13 @@ import { adminAPI } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useUsers } from '@/composables/useUsers'
 import { useToast } from '@/composables/useToast'
+import type { TicketStatus } from '@/types'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SkeletonDetail from '@/components/SkeletonDetail.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import L from 'leaflet'
 
-import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ShieldCheckIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ShieldCheckIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { WrenchScrewdriverIcon } from '@heroicons/vue/24/solid'
 
 // Fix default Leaflet marker icons
@@ -33,6 +34,8 @@ const error = ref('')
 const commentText = ref('')
 const commenting = ref(false)
 const history = ref<any[]>([])
+const closeReason = ref('')
+const pendingClose = ref(false)
 const lightboxRef = ref<InstanceType<typeof ImageLightbox> | null>(null)
 let map: L.Map | null = null
 
@@ -84,16 +87,38 @@ watch(ticket, async (val) => {
 })
 
 async function changeStatus(status: string) {
+  if (status === 'CLOSED') {
+    if (!pendingClose.value) {
+      closeReason.value = ''
+      pendingClose.value = true
+      return
+    }
+    if (!closeReason.value.trim()) {
+      toast.warning('Укажите причину закрытия заявки')
+      return
+    }
+  }
   const prev = { ...ticket.value }
   ticket.value = { ...ticket.value, status }
   try {
-    await adminAPI.changeStatus(ticket.value.id, status)
+    await adminAPI.changeStatus(
+      ticket.value.id,
+      status as TicketStatus,
+      status === 'CLOSED' ? closeReason.value.trim() : undefined,
+    )
     toast.success(`Статус изменён на «${statusLabels[status]}»`)
+    pendingClose.value = false
+    closeReason.value = ''
     load(true)  // silent background refresh, no skeleton
   } catch (err) {
     ticket.value = prev  // revert locally
     toast.error((err as Error).message)
   }
+}
+
+function cancelClose() {
+  pendingClose.value = false
+  closeReason.value = ''
 }
 
 async function assign() {
@@ -135,6 +160,29 @@ function formatDate(d: string) {
   return new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+const historyActionIcons: Record<string, any> = {
+  CREATED: CheckCircleIcon,
+  STATUS_CHANGED: ArrowPathIcon,
+  ASSIGNED: WrenchScrewdriverIcon,
+  COMMENT_ADDED: ChatBubbleLeftRightIcon,
+  FILE_ADDED: PhotoIcon,
+}
+
+function historyActionLabel(h: any): string {
+  switch (h.action) {
+    case 'CREATED':
+      return 'Заявка создана'
+    case 'ASSIGNED':
+      return 'Назначена на исполнителя'
+    case 'COMMENT_ADDED':
+      return 'Добавлен комментарий'
+    case 'FILE_ADDED':
+      return 'Прикреплён файл'
+    default:
+      return `Статус: ${statusLabels[h.old_status] || '—'} → ${statusLabels[h.new_status] || h.new_status}`
+  }
+}
+
 </script>
 
 <template>
@@ -153,10 +201,11 @@ function formatDate(d: string) {
 
     <!-- Error -->
     <div v-else-if="error" class="card p-8 text-center">
-      <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-        <span class="text-2xl">😕</span>
+      <div class="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+        <ExclamationTriangleIcon class="w-8 h-8 text-red-500" />
       </div>
-      <p class="text-red-500 mb-4">{{ error }}</p>
+      <p class="font-medium text-gray-900 dark:text-white mb-1">Не удалось загрузить заявку</p>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ error }}</p>
       <router-link to="/admin" class="btn-primary">Назад</router-link>
     </div>
 
@@ -185,6 +234,13 @@ function formatDate(d: string) {
             </div>
             <div class="divider" />
             <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{{ ticket.description }}</p>
+            <div v-if="ticket.status === 'CLOSED' && ticket.close_reason" class="mt-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40 p-4">
+              <h3 class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <ClipboardDocumentCheckIcon class="w-4 h-4" />
+                Причина закрытия
+              </h3>
+              <p class="text-sm text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap leading-relaxed">{{ ticket.close_reason }}</p>
+            </div>
           </div>
 
           <!-- Map -->
@@ -205,7 +261,12 @@ function formatDate(d: string) {
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div v-for="(f, fi) in ticket.files" :key="f.id"
                 @click="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
-                class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800 hover:shadow-md transition-shadow cursor-pointer"
+                @keydown.enter.prevent="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
+                @keydown.space.prevent="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
+                :role="f.mime_type?.startsWith('image/') ? 'button' : undefined"
+                :tabindex="f.mime_type?.startsWith('image/') ? 0 : -1"
+                :aria-label="f.mime_type?.startsWith('image/') ? `Открыть фото ${f.file_path.split('/').pop()}` : undefined"
+                class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 :class="{ 'cursor-pointer': f.mime_type?.startsWith('image/'), 'cursor-default': !f.mime_type?.startsWith('image/') }">
                 <img v-if="f.mime_type?.startsWith('image/')" :src="`/storage/${f.file_path}`" class="w-full h-28 object-cover" loading="lazy" />
                 <div v-else class="h-28 flex items-center justify-center text-gray-400">
@@ -271,7 +332,7 @@ function formatDate(d: string) {
                 :key="s"
                 @click="changeStatus(s)"
                 :disabled="ticket.status === s"
-                class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 :class="ticket.status === s
                   ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 cursor-not-allowed'
                   : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'"
@@ -280,6 +341,28 @@ function formatDate(d: string) {
                 <span v-else class="w-4 h-4" />
                 {{ statusLabels[s] }}
               </button>
+            </div>
+
+            <!-- Close reason prompt -->
+            <div v-if="pendingClose" class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+              <label for="close-reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Причина закрытия заявки
+              </label>
+              <textarea
+                id="close-reason"
+                v-model="closeReason"
+                class="form-textarea text-sm"
+                rows="3"
+                maxlength="1000"
+                placeholder="Укажите, почему заявка закрывается..."
+              ></textarea>
+              <span class="block text-right text-xs text-gray-400 mt-1">{{ closeReason.length }}/1000</span>
+              <div class="flex gap-2 mt-2">
+                <button @click="changeStatus('CLOSED')" class="btn-primary btn-sm flex-1" :disabled="!closeReason.trim()">
+                  Подтвердить закрытие
+                </button>
+                <button @click="cancelClose" class="btn-secondary btn-sm">Отмена</button>
+              </div>
             </div>
           </div>
 
@@ -323,13 +406,17 @@ function formatDate(d: string) {
             <div v-else class="space-y-3 max-h-80 overflow-y-auto pr-1 -mr-1">
               <div v-for="h in history" :key="h.id" class="text-xs border-l-2 border-primary-300 dark:border-primary-600 pl-3 py-1.5">
                 <p class="text-gray-400">{{ formatDate(h.created_at) }}</p>
-                <p class="text-gray-600 dark:text-gray-400 mt-0.5">
+                <p class="mt-1 flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                  <component :is="historyActionIcons[h.action] || ClockIcon" class="w-4 h-4 shrink-0 text-primary-500" />
                   <span class="font-medium text-gray-700 dark:text-gray-300">{{ h.changed_by_name || getUserDisplay(h.changed_by) }}</span>
+                  <span>—</span>
+                  <span class="font-semibold text-gray-900 dark:text-white">{{ historyActionLabel(h) }}</span>
                 </p>
-                <p class="mt-1 flex items-center gap-1.5 flex-wrap">
-                  <span class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-400">{{ h.old_status || '—' }}</span>
+                <p v-if="h.details" class="mt-1 text-gray-500 dark:text-gray-400">{{ h.details }}</p>
+                <p v-if="h.action === 'STATUS_CHANGED'" class="mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-400">{{ statusLabels[h.old_status] || h.old_status || '—' }}</span>
                   <span class="text-primary-500 font-bold">→</span>
-                  <span class="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded font-semibold">{{ h.new_status }}</span>
+                  <span class="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded font-semibold">{{ statusLabels[h.new_status] || h.new_status }}</span>
                 </p>
               </div>
             </div>

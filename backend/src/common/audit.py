@@ -38,6 +38,9 @@ class AdminActionLog(Base):
     target_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True,
     )
+    target_name: Mapped[str | None] = mapped_column(
+        String(255), nullable=True,
+    )
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True,
@@ -69,6 +72,7 @@ class AdminLogRepository:
         action: str,
         target_type: str,
         target_id: uuid.UUID | None = None,
+        target_name: str | None = None,
         details: str | None = None,
     ) -> AdminActionLog:
         """Создать запись в аудит-логе."""
@@ -77,6 +81,7 @@ class AdminLogRepository:
             action=action,
             target_type=target_type,
             target_id=target_id,
+            target_name=target_name,
             details=details,
         )
         db.add(entry)
@@ -127,12 +132,15 @@ async def log_admin_action(
     action: str,
     target_type: str,
     target_id: uuid.UUID | None = None,
+    target_name: str | None = None,
     details: str | None = None,
 ) -> AdminActionLog:
     """
     Вспомогательная функция для быстрого логирования действий админов.
 
     Использование:
-        await log_admin_action(db, admin.id, "ban", "user", user_id, "Причина: ...")
+        await log_admin_action(db, admin.id, "ban", "user", user_id, user.name, "Причина: ...")
     """
-    return await AdminLogRepository.create(db, admin_id, action, target_type, target_id, details)
+    return await AdminLogRepository.create(
+        db, admin_id, action, target_type, target_id, target_name, details,
+    )

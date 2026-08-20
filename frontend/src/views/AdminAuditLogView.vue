@@ -67,6 +67,10 @@ function formatDate(d: string) {
   return new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function truncate(s: string, n: number) {
+  return s.length > n ? s.slice(0, n) + '…' : s
+}
+
 onMounted(async () => {
   loadLogs()
 })
@@ -89,7 +93,7 @@ onMounted(async () => {
         v-for="a in actions"
         :key="a.value"
         @click="setFilter(a.value)"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2"
         :class="actionFilter === a.value
           ? 'bg-primary-600 text-white shadow-sm'
           : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'"
@@ -140,7 +144,12 @@ onMounted(async () => {
                       <span class="text-gray-700 dark:text-gray-300 font-medium">{{ log.target_name || getUserDisplay(log.target_id) }}</span>
                     </template>
                     <template v-else-if="log.target_type === 'ticket'">
-                      <span class="text-gray-500">Заявка</span>
+                      <router-link
+                        :to="`/admin/tickets/${log.target_id}`"
+                        class="text-primary-600 dark:text-primary-400 font-medium hover:underline"
+                      >
+                        {{ log.target_name ? `Заявка «${truncate(log.target_name, 40)}»` : 'Заявка' }}
+                      </router-link>
                     </template>
                     <span v-else class="text-gray-500">{{ log.target_type }}</span>
                   </td>

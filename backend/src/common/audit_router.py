@@ -43,17 +43,16 @@ class AuditLogOut(BaseModel):
         """Извлекаем имя администратора и цели из связанных ORM объектов."""
         if not isinstance(data, dict):
             admin = getattr(data, 'admin', None)
-            target = getattr(data, 'target_user', None)
             return {
                 "id": data.id,
                 "admin_id": data.admin_id,
                 "action": data.action,
                 "target_type": data.target_type,
                 "target_id": data.target_id,
+                "target_name": data.target_name,
                 "details": data.details,
                 "created_at": data.created_at,
                 "admin_name": admin.name if admin else "",
-                "target_name": target.name if target and data.target_type == "user" else None,
             }
         return data
 

@@ -94,7 +94,8 @@ async def admin_change_user_role(
     # Аудит
     await log_admin_action(
         db, admin.id, "change_role", "user", user_id,
-        f"Роль изменена на {new_role.value}",
+        user.name,
+        f"Роль пользователя {user.name} изменена на {new_role.value}",
     )
 
     return user
@@ -136,7 +137,7 @@ async def admin_ban_user(
     await db.refresh(user)
 
     # Аудит
-    await log_admin_action(db, admin.id, "ban", "user", user_id, f"Заблокирован пользователь {user.name}")
+    await log_admin_action(db, admin.id, "ban", "user", user_id, user.name, f"Заблокирован пользователь {user.name}")
 
     return user
 
@@ -171,6 +172,6 @@ async def admin_unban_user(
     await db.refresh(user)
 
     # Аудит
-    await log_admin_action(db, admin.id, "unban", "user", user_id, f"Разблокирован пользователь {user.name}")
+    await log_admin_action(db, admin.id, "unban", "user", user_id, user.name, f"Разблокирован пользователь {user.name}")
 
     return user

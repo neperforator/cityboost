@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     PORT: int = 8000
     CORS_ORIGINS: str = "*"
 
+    # --- API Docs (Swagger/ReDoc) ---
+    # Отдельно от DEBUG: можно включить документацию, даже когда DEBUG=false
+    ENABLE_DOCS: bool = False
+
+    @property
+    def DOCS_ENABLED(self) -> bool:
+        return self.ENABLE_DOCS or self.DEBUG
+
     # --- Storage / Files ---
     UPLOAD_DIR: str = "storage/uploads/tickets"
     MAX_FILE_SIZE_MB: int = 5

@@ -275,6 +275,7 @@ async def upload_file(
             file_path=relative_path,
             file_size=file_size,
             mime_type=file.content_type,
+            author_id=current_user.id,
         )
     except ValueError as exc:
         raise HTTPException(

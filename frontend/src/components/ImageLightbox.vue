@@ -68,7 +68,8 @@ defineExpose({ open })
         <!-- Close button -->
         <button
           @click="close"
-          class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          aria-label="Закрыть"
+          class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <XMarkIcon class="w-6 h-6" />
         </button>
@@ -82,7 +83,8 @@ defineExpose({ open })
         <button
           v-if="images.length > 1 && currentIndex > 0"
           @click="prev"
-          class="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          aria-label="Предыдущее фото"
+          class="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <ChevronLeftIcon class="w-7 h-7" />
         </button>
@@ -91,7 +93,8 @@ defineExpose({ open })
         <button
           v-if="images.length > 1 && currentIndex < images.length - 1"
           @click="next"
-          class="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          aria-label="Следующее фото"
+          class="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <ChevronRightIcon class="w-7 h-7" />
         </button>

@@ -7,7 +7,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import Pagination from '@/components/Pagination.vue'
 import { PlusIcon } from '@heroicons/vue/24/solid'
-import { InboxStackIcon, NewspaperIcon, WrenchScrewdriverIcon, CheckBadgeIcon, ArchiveBoxXMarkIcon, MapPinIcon, CalendarDaysIcon } from '@heroicons/vue/24/outline'
+import { InboxStackIcon, NewspaperIcon, WrenchScrewdriverIcon, CheckBadgeIcon, ArchiveBoxXMarkIcon, MapPinIcon, CalendarDaysIcon, ChevronRightIcon, PhotoIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const PAGE_SIZE = 10
 
@@ -18,18 +18,10 @@ const total = ref(0)
 const page = ref(1)
 const loading = ref(true)
 const error = ref('')
-const activeFilter = ref('ALL')
+const activeFilter = ref('')
 const statsLoading = ref(true)
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
-
-const filters = [
-  { key: 'ALL', label: 'Все', icon: InboxStackIcon },
-  { key: 'NEW', label: 'Новые', icon: NewspaperIcon },
-  { key: 'IN_WORK', label: 'В работе', icon: WrenchScrewdriverIcon },
-  { key: 'DONE', label: 'Выполнены', icon: CheckBadgeIcon },
-  { key: 'CLOSED', label: 'Закрыты', icon: ArchiveBoxXMarkIcon },
-]
 
 // Global stats from server
 const stats = ref({
@@ -39,6 +31,14 @@ const stats = ref({
   done: 0,
   closed: 0,
 })
+
+const statCards = computed(() => [
+  { key: '', label: 'Всего заявок', value: stats.value.total, icon: InboxStackIcon, bg: 'bg-primary-50 dark:bg-primary-900/30', color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500' },
+  { key: 'NEW', label: 'Новые', value: stats.value.new, icon: NewspaperIcon, bg: 'bg-blue-50 dark:bg-blue-900/30', color: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-500' },
+  { key: 'IN_WORK', label: 'В работе', value: stats.value.in_work, icon: WrenchScrewdriverIcon, bg: 'bg-amber-50 dark:bg-amber-900/30', color: 'text-amber-600 dark:text-amber-400', ring: 'ring-amber-500' },
+  { key: 'DONE', label: 'Выполнены', value: stats.value.done, icon: CheckBadgeIcon, bg: 'bg-emerald-50 dark:bg-emerald-900/30', color: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-500' },
+  { key: 'CLOSED', label: 'Закрыты', value: stats.value.closed, icon: ArchiveBoxXMarkIcon, bg: 'bg-gray-100 dark:bg-gray-800/60', color: 'text-gray-500 dark:text-gray-400', ring: 'ring-gray-500' },
+])
 
 async function loadStats() {
   statsLoading.value = true
@@ -55,7 +55,7 @@ async function loadTickets() {
   loading.value = true
   error.value = ''
   try {
-    const statusParam = activeFilter.value === 'ALL' ? undefined : activeFilter.value
+    const statusParam = activeFilter.value || undefined
     const data = await ticketAPI.list(page.value, PAGE_SIZE, statusParam)
     tickets.value = data.items
     total.value = data.total
@@ -85,17 +85,6 @@ function viewTicket(id: string) {
   router.push(`/tickets/${id}`)
 }
 
-function statusCount(status: string) {
-  if (status === 'ALL') return stats.value.total
-  const map: Record<string, keyof typeof stats.value> = {
-    'NEW': 'new',
-    'IN_WORK': 'in_work',
-    'DONE': 'done',
-    'CLOSED': 'closed',
-  }
-  return stats.value[map[status] || 'total']
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -108,33 +97,41 @@ onMounted(() => {
 
 <template>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-    <!-- Page header -->
+    <!-- Hero -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Мои заявки</h1>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Всего заявок: {{ stats.total }}</p>
+        <h1 class="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+          Добро пожаловать, <span class="text-primary-600 dark:text-primary-400">{{ auth.userName }}</span>
+        </h1>
+        <p class="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+          Следите за статусами заявок — мы держим вас в курсе каждого шага
+        </p>
       </div>
-      <button @click="goToCreate" class="btn-primary">
+      <button @click="goToCreate" class="btn-accent shrink-0">
         <PlusIcon class="w-5 h-5" />
         Новая заявка
       </button>
     </div>
 
-    <!-- Filters with global counts (horizontal scroll on mobile) -->
-    <div class="flex flex-nowrap md:flex-wrap gap-2 mb-6 md:overflow-visible
-                overflow-x-auto pb-2 md:pb-0 scrollbar-none -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory">
+    <!-- Stat cards (click to filter) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 mb-8">
       <button
-        v-for="f in filters"
-        :key="f.key"
-        @click="setFilter(f.key)"
-        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 snap-start shrink-0 active:scale-95"
-        :class="activeFilter === f.key
-          ? 'bg-primary-600 text-white shadow-sm'
-          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'"
+        v-for="s in statCards"
+        :key="s.key"
+        @click="setFilter(s.key)"
+        class="stat-card min-w-0 text-left cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2"
+        :class="[
+          activeFilter === s.key ? `ring-2 ${s.ring}` : '',
+          { 'opacity-70': statsLoading },
+        ]"
       >
-        <component :is="f.icon" class="w-4 h-4" />
-        {{ f.label }}
-        <span class="ml-1 opacity-75">({{ statusCount(f.key) }})</span>
+        <div class="stat-icon shrink-0" :class="s.bg">
+          <component :is="s.icon" class="w-6 h-6" :class="s.color" />
+        </div>
+        <div class="min-w-0">
+          <p class="stat-value leading-none">{{ s.value }}</p>
+          <p class="stat-label mt-1.5 truncate">{{ s.label }}</p>
+        </div>
       </button>
     </div>
 
@@ -144,23 +141,27 @@ onMounted(() => {
       <SkeletonCard v-if="loading" key="loading" :count="5" />
 
       <!-- Error -->
-      <div v-else-if="error" key="error" class="card p-8 text-center">
-        <p class="text-red-500 mb-4">{{ error }}</p>
+      <div v-else-if="error" key="error" class="card p-12 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+          <ExclamationTriangleIcon class="w-8 h-8 text-red-500" />
+        </div>
+        <p class="text-gray-700 dark:text-gray-200 font-medium mb-1">Не удалось загрузить заявки</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ error }}</p>
         <button @click="loadTickets" class="btn-secondary">Повторить</button>
       </div>
 
       <!-- Empty state -->
       <div v-else-if="tickets.length === 0" key="empty" class="card p-12 text-center">
-        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-          <InboxStackIcon class="w-8 h-8 text-gray-400" />
+        <div class="w-16 h-16 rounded-2xl bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center mx-auto mb-4">
+          <InboxStackIcon class="w-8 h-8 text-primary-500" />
         </div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-          {{ activeFilter === 'ALL' ? 'У вас пока нет заявок' : 'Нет заявок с таким статусом' }}
+        <h3 class="font-display text-lg font-semibold text-gray-900 dark:text-white mb-1">
+          {{ activeFilter === '' ? 'У вас пока нет заявок' : 'Нет заявок с таким статусом' }}
         </h3>
         <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">
-          {{ activeFilter === 'ALL' ? 'Создайте первую заявку — мы поможем решить вашу проблему' : 'Попробуйте другой фильтр' }}
+          {{ activeFilter === '' ? 'Создайте первую заявку — мы поможем решить вашу проблему' : 'Попробуйте другой фильтр' }}
         </p>
-        <button v-if="activeFilter === 'ALL'" @click="goToCreate" class="btn-primary">
+        <button v-if="activeFilter === ''" @click="goToCreate" class="btn-accent">
           <PlusIcon class="w-5 h-5" /> Создать заявку
         </button>
       </div>
@@ -171,23 +172,34 @@ onMounted(() => {
           v-for="ticket in tickets"
           :key="ticket.id"
           @click="viewTicket(ticket.id)"
-          class="card-hover p-5"
+          @keydown.enter="viewTicket(ticket.id)"
+          @keydown.space.prevent="viewTicket(ticket.id)"
+          role="link"
+          tabindex="0"
+          class="card-hover p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1 min-w-0">
-              <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ ticket.title }}</h3>
-              <div class="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500 dark:text-gray-400">
-                <span class="inline-flex items-center gap-1">
-                  <CalendarDaysIcon class="w-4 h-4" />
+              <h3 class="font-display font-semibold text-gray-900 dark:text-white truncate">{{ ticket.title }}</h3>
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 text-sm text-gray-500 dark:text-gray-400">
+                <span class="inline-flex items-center gap-1.5">
+                  <CalendarDaysIcon class="w-4 h-4 shrink-0" />
                   {{ formatDate(ticket.created_at) }}
                 </span>
-                <span v-if="ticket.address" class="inline-flex items-center gap-1 truncate max-w-xs">
+                <span v-if="ticket.address" class="inline-flex items-center gap-1.5 truncate max-w-xs">
                   <MapPinIcon class="w-4 h-4 shrink-0" />
-                  {{ ticket.address }}
+                  <span class="truncate">{{ ticket.address }}</span>
+                </span>
+                <span v-if="ticket.files && ticket.files.length > 0" class="inline-flex items-center gap-1.5">
+                  <PhotoIcon class="w-4 h-4 shrink-0" />
+                  {{ ticket.files.length }}
                 </span>
               </div>
             </div>
-            <StatusBadge :status="ticket.status" />
+            <div class="flex items-center gap-2 shrink-0">
+              <StatusBadge :status="ticket.status" />
+              <ChevronRightIcon class="w-4 h-4 text-gray-300 dark:text-gray-600" />
+            </div>
           </div>
         </div>
       </div>

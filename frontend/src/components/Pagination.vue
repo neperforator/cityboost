@@ -50,7 +50,7 @@ function getVisiblePages(current: number, total: number): (number | 'ellipsis')[
       <!-- Prev -->
       <button
         :disabled="page <= 1"
-        class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+        class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         @click="emit('change', page - 1)"
       >
         <ChevronLeftIcon class="w-4 h-4" />
@@ -61,7 +61,7 @@ function getVisiblePages(current: number, total: number): (number | 'ellipsis')[
         <span v-if="p === 'ellipsis'" class="px-1.5 text-gray-400 text-sm select-none">…</span>
         <button
           v-else
-          class="min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all"
+          class="min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           :class="p === page
             ? 'bg-primary-600 text-white shadow-sm cursor-default'
             : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
@@ -74,7 +74,7 @@ function getVisiblePages(current: number, total: number): (number | 'ellipsis')[
       <!-- Next -->
       <button
         :disabled="page >= totalPages"
-        class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+        class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         @click="emit('change', page + 1)"
       >
         <ChevronRightIcon class="w-4 h-4" />

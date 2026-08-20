@@ -401,7 +401,8 @@ async def test_admin_tickets(client: httpx.AsyncClient, admin_headers, ticket1_i
 
     # 5.5 Изменение статуса
     r = await client.patch(
-        f"{BASE_URL}/admin/tickets/{ticket1_id}/status?new_status=DONE",
+        f"{BASE_URL}/admin/tickets/{ticket1_id}/status",
+        json={"new_status": "DONE"},
         headers=admin_headers,
     )
     assert r.status_code == 200

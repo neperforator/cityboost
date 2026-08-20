@@ -35,10 +35,10 @@ const stats = ref({
 })
 
 const statCards = computed(() => [
-  { key: '', label: 'Всего', count: stats.value.total, icon: InboxStackIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500' },
-  { key: 'NEW', label: 'Новые', count: stats.value.new, icon: NewspaperIcon, color: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-500' },
-  { key: 'IN_WORK', label: 'В работе', count: stats.value.in_work, icon: WrenchScrewdriverIcon, color: 'text-amber-600 dark:text-amber-400', ring: 'ring-amber-500' },
-  { key: 'DONE', label: 'Выполнены', count: stats.value.done, icon: CheckBadgeIcon, color: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-500' },
+  { key: '', label: 'Всего', count: stats.value.total, icon: InboxStackIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500', bg: 'bg-primary-50 dark:bg-primary-900/30' },
+  { key: 'NEW', label: 'Новые', count: stats.value.new, icon: NewspaperIcon, color: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/30' },
+  { key: 'IN_WORK', label: 'В работе', count: stats.value.in_work, icon: WrenchScrewdriverIcon, color: 'text-amber-600 dark:text-amber-400', ring: 'ring-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/30' },
+  { key: 'DONE', label: 'Выполнены', count: stats.value.done, icon: CheckBadgeIcon, color: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
 ])
 
 async function loadStats() {
@@ -108,10 +108,10 @@ onMounted(async () => {
         v-for="s in statCards"
         :key="s.key"
         @click="setFilter(s.key)"
-        class="stat-card hover:shadow-md transition-shadow cursor-pointer"
+        class="stat-card hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2"
         :class="statusFilter === s.key ? `ring-2 ${s.ring}` : ''"
       >
-        <div class="stat-icon bg-primary-50 dark:bg-primary-900/30">
+        <div class="stat-icon" :class="s.bg">
           <component :is="s.icon" class="w-6 h-6" :class="s.color" />
         </div>
         <div>
@@ -152,7 +152,7 @@ onMounted(async () => {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                <tr v-for="t in tickets" :key="t.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" @click="viewTicket(t.id)">
+                <tr v-for="t in tickets" :key="t.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40" @click="viewTicket(t.id)" @keydown.enter="viewTicket(t.id)" @keydown.space.prevent="viewTicket(t.id)" tabindex="0">
                   <td class="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-xs truncate">{{ t.title }}</td>
                   <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ t.user_name || getUserDisplay(t.user_id) }}</td>
                   <td class="px-4 py-3"><StatusBadge :status="t.status" /></td>

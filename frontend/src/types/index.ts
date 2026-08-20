@@ -52,6 +52,7 @@ export interface Ticket {
   status: TicketStatus
   latitude?: number | null
   longitude?: number | null
+  close_reason?: string | null
   user_id: string
   user_name?: string
   assigned_to?: string | null
@@ -97,6 +98,11 @@ export interface TicketFilters {
   page_size?: number
 }
 
+export interface TicketStatusChangePayload {
+  new_status: TicketStatus
+  close_reason?: string
+}
+
 // ---- Admin ----
 
 export interface AdminActionLog {
@@ -116,8 +122,10 @@ export interface TicketHistoryEntry {
   ticket_id: string
   changed_by: string
   changed_by_name?: string
+  action?: string
   old_status?: string | null
-  new_status: string
+  new_status?: string | null
+  details?: string | null
   created_at: string
 }
 

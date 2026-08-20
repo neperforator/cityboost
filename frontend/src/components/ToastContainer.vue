@@ -21,7 +21,7 @@ const bgMap: Record<string, string> = {
 </script>
 
 <template>
-  <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+  <div role="status" aria-live="polite" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
     <TransitionGroup name="toast">
       <div
         v-for="t in toasts"
@@ -31,7 +31,7 @@ const bgMap: Record<string, string> = {
       >
         <component :is="iconMap[t.type]" class="w-5 h-5 text-white shrink-0" />
         <span class="flex-1 text-white">{{ t.message }}</span>
-        <button @click="remove(t.id)" class="text-white/70 hover:text-white shrink-0">
+        <button @click="remove(t.id)" :aria-label="`Закрыть уведомление: ${t.message}`" class="text-white/70 hover:text-white shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded">
           <XMarkIcon class="w-4 h-4" />
         </button>
       </div>

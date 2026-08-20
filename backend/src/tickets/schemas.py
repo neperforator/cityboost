@@ -12,6 +12,22 @@ from pydantic import BaseModel, Field, model_validator
 from src.tickets.models import TicketStatus
 
 
+class TicketStatusChangeRequest(BaseModel):
+    """Смена статуса заявки администратором."""
+    new_status: TicketStatus = Field(..., description="Новый статус заявки")
+    close_reason: str | None = Field(
+        None, max_length=1000,
+        description="Причина закрытия (обязательна при статусе CLOSED)",
+    )
+
+    @model_validator(mode="after")
+    @classmethod
+    def validate_close_reason(cls, data):
+        if data.new_status == TicketStatus.CLOSED and not (data.close_reason or "").strip():
+            raise ValueError("Необходимо указать причину закрытия заявки")
+        return data
+
+
 # ---------- Ticket ----------
 
 class TicketCreateRequest(BaseModel):
@@ -40,6 +56,7 @@ class TicketOut(BaseModel):
     latitude: float | None
     longitude: float | None
     address: str | None
+    close_reason: str | None = None
     user_name: str = ""
     assigned_to_name: str | None = None
     created_at: datetime
@@ -64,6 +81,7 @@ class TicketOut(BaseModel):
                 "latitude": data.latitude,
                 "longitude": data.longitude,
                 "address": data.address,
+                "close_reason": data.close_reason,
                 "created_at": data.created_at,
                 "updated_at": data.updated_at,
                 "user_name": user.name if user else "",
@@ -150,13 +168,15 @@ class TicketCommentOut(BaseModel):
 # ---------- Ticket History ----------
 
 class TicketHistoryOut(BaseModel):
-    """Запись истории изменения статуса заявки."""
+    """Запись истории изменения заявки."""
     id: uuid.UUID
     ticket_id: uuid.UUID
     changed_by: uuid.UUID
     changed_by_name: str = ""
+    action: str = "STATUS_CHANGED"
     old_status: str | None
     new_status: str
+    details: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -171,8 +191,10 @@ class TicketHistoryOut(BaseModel):
                 "id": data.id,
                 "ticket_id": data.ticket_id,
                 "changed_by": data.changed_by,
+                "action": data.action,
                 "old_status": data.old_status,
                 "new_status": data.new_status,
+                "details": data.details,
                 "created_at": data.created_at,
                 "changed_by_name": user.name if user else "",
             }
