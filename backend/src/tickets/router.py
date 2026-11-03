@@ -183,6 +183,11 @@ async def get_ticket(
     ticket = await service.get_ticket(ticket_id)
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    if ticket.user_id != current_user.id and current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Только автор заявки или администратор может просматривать заявку",
+        )
     return TicketOutDetail(
         id=ticket.id,
         user_id=ticket.user_id,
@@ -250,8 +255,18 @@ async def upload_file(
             detail=f"Файл слишком большой. Максимум {settings.MAX_FILE_SIZE_MB} МБ",
         )
 
-    # Проверка количества файлов
+    # Проверяем, что заявка существует и принадлежит пользователю (или он админ)
     service = TicketService(db)
+    ticket = await service.get_ticket(ticket_id)
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    if ticket.user_id != current_user.id and current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Только автор заявки или администратор может загружать файлы",
+        )
+
+    # Проверка количества файлов
     existing_files = await service.get_file_count(ticket_id)
     if existing_files >= settings.MAX_FILES_PER_TICKET:
         raise HTTPException(
