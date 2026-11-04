@@ -3,6 +3,7 @@
 .env.prod
 *.local
 .claude/
+scripts/
 
 # Python
 __pycache__/

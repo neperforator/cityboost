@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 import uuid
-from sqlalchemy import func, select
+from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
+from src.auth.models import User
 from src.tickets.models import Ticket, TicketComment, TicketFile, TicketHistory, TicketStatus
 
 
@@ -137,26 +138,53 @@ class TicketRepository:
         date_to: str | None = None,
         page: int = 1,
         page_size: int = 20,
+        search: str | None = None,
     ) -> tuple[list[Ticket], int]:
-        """Фильтрация заявок по статусу и дате (для админа)."""
+        """Фильтрация заявок по статусу, дате и текстовому поиску (для админа)."""
         query = select(Ticket).options(
             selectinload(Ticket.user),
             selectinload(Ticket.assignee),
         ).order_by(Ticket.created_at.desc())
 
+        count_query = select(func.count()).select_from(Ticket)
+
+        # Поиск по всем текстовым полям заявки, заявителю и исполнителю.
+        term = search.strip() if search else ""
+        if term:
+            pattern = f"%{term}%"
+            assignee = aliased(User)
+            query = (
+                query
+                .join(User, Ticket.user_id == User.id)
+                .outerjoin(assignee, Ticket.assigned_to == assignee.id)
+            )
+            count_query = (
+                count_query
+                .join(User, Ticket.user_id == User.id)
+                .outerjoin(assignee, Ticket.assigned_to == assignee.id)
+            )
+            search_filter = or_(
+                Ticket.title.ilike(pattern),
+                Ticket.description.ilike(pattern),
+                Ticket.address.ilike(pattern),
+                Ticket.close_reason.ilike(pattern),
+                cast(Ticket.id, Text).ilike(pattern),
+                User.name.ilike(pattern),
+                User.email.ilike(pattern),
+                assignee.name.ilike(pattern),
+                assignee.email.ilike(pattern),
+            )
+            query = query.where(search_filter)
+            count_query = count_query.where(search_filter)
+
         if status is not None:
             query = query.where(Ticket.status == status)
-        if date_from is not None:
-            query = query.where(Ticket.created_at >= date_from)
-        if date_to is not None:
-            query = query.where(Ticket.created_at <= date_to)
-
-        count_query = select(func.count()).select_from(Ticket)
-        if status is not None:
             count_query = count_query.where(Ticket.status == status)
         if date_from is not None:
+            query = query.where(Ticket.created_at >= date_from)
             count_query = count_query.where(Ticket.created_at >= date_from)
         if date_to is not None:
+            query = query.where(Ticket.created_at <= date_to)
             count_query = count_query.where(Ticket.created_at <= date_to)
 
         query = query.offset((page - 1) * page_size).limit(page_size)

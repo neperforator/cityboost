@@ -206,7 +206,7 @@ function historyActionLabel(h: any): string {
       <header class="mt-6 border-b-2 border-line pb-7 dark:border-line-dark">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="min-w-0 flex-1">
-            <p class="page-kicker">Диспетчерская / заявка</p>
+            <p class="page-kicker">Администрирование / заявка</p>
             <h1 class="mt-2 font-display text-2xl font-semibold leading-tight tracking-tight text-ink dark:text-ink-dark sm:text-3xl">
               {{ ticket.title }}
             </h1>

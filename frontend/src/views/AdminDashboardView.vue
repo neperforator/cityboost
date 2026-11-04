@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminAPI } from '@/api'
 import type { TicketStatus } from '@/types'
@@ -8,7 +8,7 @@ import { useUsers } from '@/composables/useUsers'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 import Pagination from '@/components/Pagination.vue'
-import { InboxStackIcon } from '@heroicons/vue/24/outline'
+import { InboxStackIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 
 const PAGE_SIZE = 15
 
@@ -21,6 +21,9 @@ const total = ref(0)
 const page = ref(1)
 const loading = ref(true)
 const statusFilter = ref('')
+const searchInput = ref('')
+const searchQuery = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
@@ -54,6 +57,7 @@ async function loadTickets() {
       page: page.value,
       page_size: PAGE_SIZE,
       status: (statusFilter.value || undefined) as TicketStatus | undefined,
+      q: searchQuery.value || undefined,
     })
     tickets.value = data.items
     total.value = data.total
@@ -75,6 +79,29 @@ function setFilter(status: string) {
   loadTickets()
 }
 
+function clearSearch() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchInput.value = ''
+  searchQuery.value = ''
+  page.value = 1
+  loadTickets()
+}
+
+watch(searchInput, (value) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  const next = value.trim()
+  if (next === searchQuery.value) return
+  searchTimer = setTimeout(() => {
+    searchQuery.value = next
+    page.value = 1
+    loadTickets()
+  }, 350)
+})
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
+
 function viewTicket(id: string) {
   router.push(`/admin/tickets/${id}`)
 }
@@ -92,13 +119,23 @@ onMounted(() => {
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-10">
     <header class="border-b-2 border-line pb-7 dark:border-line-dark">
-      <p class="page-kicker">Диспетчерская</p>
+      <p class="page-kicker">Администрирование</p>
       <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 class="font-display text-3xl font-semibold tracking-tight text-ink dark:text-ink-dark">Все заявки</h1>
           <p class="mt-2 text-sm text-ink-soft dark:text-ink-dark-soft">Очередь обращений и распределение работы службы.</p>
         </div>
-        <router-link to="/admin/users" class="btn-secondary btn-sm shrink-0">Пользователи</router-link>
+        <div class="relative w-full sm:w-72">
+          <MagnifyingGlassIcon class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft dark:text-ink-dark-soft" />
+          <input
+            v-model="searchInput"
+            type="text"
+            class="form-input pl-9"
+            placeholder="Поиск: заявитель, название, адрес..."
+            aria-label="Поиск заявок"
+            @keydown.esc="clearSearch"
+          />
+        </div>
       </div>
     </header>
 
@@ -126,8 +163,11 @@ onMounted(() => {
 
       <div v-else-if="tickets.length === 0" key="empty" class="panel mt-5 p-10 text-center">
         <InboxStackIcon class="mx-auto h-8 w-8 text-ink-soft dark:text-ink-dark-soft" />
-        <p class="mt-3 text-sm text-ink-soft dark:text-ink-dark-soft">Нет заявок с выбранным статусом</p>
-        <button @click="setFilter('')" class="btn-secondary btn-sm mt-4">Показать все</button>
+        <p class="mt-3 text-sm text-ink-soft dark:text-ink-dark-soft">
+          {{ searchQuery ? `Ничего не найдено по запросу «${searchQuery}»` : 'Нет заявок с выбранным статусом' }}
+        </p>
+        <button v-if="searchQuery" @click="clearSearch" class="btn-secondary btn-sm mt-4">Сбросить поиск</button>
+        <button v-else @click="setFilter('')" class="btn-secondary btn-sm mt-4">Показать все</button>
       </div>
 
       <div v-else key="table" class="mt-5">

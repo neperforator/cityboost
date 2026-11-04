@@ -60,13 +60,9 @@ watch(mobileOpen, (val) => {
         <ClipboardDocumentListIcon class="h-4 w-4" />
         Мои заявки
       </router-link>
-      <router-link to="/tickets/create" class="btn-accent mt-3 w-full">
-        <PlusIcon class="h-4 w-4" />
-        Новая заявка
-      </router-link>
       <router-link
         to="/profile"
-        class="nav-item mt-1"
+        class="nav-item"
         :class="{ 'nav-item-active': activeRoute === '/profile' }"
       >
         <UserCircleIcon class="h-4 w-4" />
@@ -163,9 +159,6 @@ watch(mobileOpen, (val) => {
           <nav class="flex-1 overflow-y-auto p-3">
             <button @click="go('/dashboard')" class="nav-item w-full" :class="{ 'nav-item-active': activeRoute === '/dashboard' }">
               <ClipboardDocumentListIcon class="h-4 w-4" /> Мои заявки
-            </button>
-            <button @click="go('/tickets/create')" class="nav-item w-full">
-              <PlusIcon class="h-4 w-4" /> Новая заявка
             </button>
             <button @click="go('/profile')" class="nav-item w-full" :class="{ 'nav-item-active': activeRoute === '/profile' }">
               <UserCircleIcon class="h-4 w-4" /> Профиль

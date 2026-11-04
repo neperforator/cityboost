@@ -60,7 +60,7 @@ const techStack = ['Vue 3', 'Tailwind CSS', 'Leaflet.js', 'FastAPI', 'PostgreSQL
       <aside class="space-y-5">
         <section class="bg-primary-900 p-5 text-white">
           <p class="text-xs font-semibold text-primary-200">Версия</p>
-          <p class="mt-2 font-display text-4xl font-semibold">2.0</p>
+          <p class="mt-2 font-display text-4xl font-semibold">2.0 Beta</p>
           <p class="mt-2 text-sm leading-6 text-primary-100">Единый маршрут обращения: от заявки до ответа службы.</p>
         </section>
 

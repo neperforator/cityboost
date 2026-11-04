@@ -248,6 +248,7 @@ export const adminAPI: AdminAPI = {
   listTickets(params = {}) {
     const q = new URLSearchParams()
     if (params.status) q.set('status', params.status)
+    if (params.q) q.set('q', params.q)
     if (params.page) q.set('page', String(params.page))
     if (params.page_size) q.set('page_size', String(params.page_size))
     return api.get(`/admin/tickets?${q}`).then(r => r.data)

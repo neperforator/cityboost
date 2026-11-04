@@ -96,6 +96,7 @@ export interface TicketFilters {
   status?: TicketStatus
   page?: number
   page_size?: number
+  q?: string
 }
 
 export interface TicketStatusChangePayload {

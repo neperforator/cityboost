@@ -40,21 +40,27 @@ admin_router = APIRouter(
     "",
     response_model=PaginatedTickets,
     summary="Список всех заявок (админ)",
-    description="Фильтрация по статусу и диапазону дат. Пагинация.",
+    description="Фильтрация по статусу, диапазону дат и поиск по заявителю, названию, описанию, адресу и ID. Пагинация.",
 )
 async def admin_list_tickets(
     status: TicketStatus | None = Query(None, description="Фильтр по статусу"),
     date_from: str | None = Query(None, description="Начальная дата (ISO 8601)"),
     date_to: str | None = Query(None, description="Конечная дата (ISO 8601)"),
+    q: str | None = Query(
+        None,
+        min_length=1,
+        max_length=200,
+        description="Поиск: заявитель, название, описание, адрес, ID заявки",
+    ),
     page: int = Query(1, ge=1, description="Номер страницы"),
     page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(get_current_user),
 ) -> PaginatedTickets:
-    """Получить список всех заявок с фильтрацией и пагинацией."""
+    """Получить список всех заявок с фильтрацией, поиском и пагинацией."""
     service = TicketService(db)
     items, total = await service.repo.list_by_status_and_date(
-        db, status, date_from, date_to, page, page_size,
+        db, status, date_from, date_to, page, page_size, q,
     )
     return PaginatedTickets(items=items, total=total, page=page, page_size=page_size)
 
