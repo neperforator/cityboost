@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   Bars3Icon, XMarkIcon, SunIcon, MoonIcon, ClipboardDocumentListIcon,
   UserCircleIcon, ArrowRightOnRectangleIcon, UsersIcon,
-  ClockIcon, PlusIcon, InformationCircleIcon, HomeIcon,
+  ClockIcon, PlusIcon, InformationCircleIcon, HomeIcon, ChartBarIcon,
 } from '@heroicons/vue/24/outline'
 
 defineProps({ dark: Boolean })
@@ -25,6 +25,7 @@ const activeRoute = computed(() => router.currentRoute.value.path)
 const adminLinks = [
   { to: '/admin', label: 'Кабинет', icon: HomeIcon },
   { to: '/admin/tickets', label: 'Все заявки', icon: ClipboardDocumentListIcon },
+  { to: '/admin/analytics', label: 'Аналитика', icon: ChartBarIcon },
   { to: '/admin/users', label: 'Пользователи', icon: UsersIcon },
   { to: '/admin/audit', label: 'Аудит-лог', icon: ClockIcon },
 ]

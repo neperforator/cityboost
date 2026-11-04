@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ticketAPI } from '@/api'
 import { useToast } from '@/composables/useToast'
@@ -28,13 +28,43 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024
 const dragActive = ref(false)
 let dragDepth = 0
 
-const filePreviews = computed(() =>
-  selectedFiles.value.map(f => ({
-    name: f.name,
-    size: (f.size / 1024 / 1024).toFixed(1) + ' MB',
-    url: URL.createObjectURL(f),
-  }))
-)
+const filePreviews = ref<Array<{ name: string; size: string; url: string }>>([])
+// Один object URL на файл: переиспользуем и освобождаем при удалении/уходе.
+const previewUrls = new Map<File, string>()
+
+function syncPreviews() {
+  const files = selectedFiles.value
+
+  for (const [file, url] of previewUrls) {
+    if (!files.includes(file)) {
+      URL.revokeObjectURL(url)
+      previewUrls.delete(file)
+    }
+  }
+
+  filePreviews.value = files.map((file) => {
+    let url = previewUrls.get(file)
+    if (!url) {
+      url = URL.createObjectURL(file)
+      previewUrls.set(file, url)
+    }
+    return {
+      name: file.name,
+      size: (file.size / 1024 / 1024).toFixed(1) + ' MB',
+      url,
+    }
+  })
+}
+
+function releasePreviews() {
+  for (const url of previewUrls.values()) URL.revokeObjectURL(url)
+  previewUrls.clear()
+  filePreviews.value = []
+}
+
+watch(selectedFiles, syncPreviews, { immediate: true })
+
+onUnmounted(releasePreviews)
 
 function processFiles(files: FileList | File[]) {
   errors.value.photos = ''
@@ -93,7 +123,7 @@ function onDragLeave() {
 }
 
 function removeFile(index: number) {
-  selectedFiles.value.splice(index, 1)
+  selectedFiles.value = selectedFiles.value.filter((_, i) => i !== index)
   errors.value.photos = ''
 }
 
@@ -122,6 +152,7 @@ async function submit() {
       fd.append('files', file)
     }
     const ticket = await ticketAPI.create(fd)
+    releasePreviews()
     toast.success('Заявка создана!')
     router.push(`/tickets/${ticket.id}`)
   } catch (err) {

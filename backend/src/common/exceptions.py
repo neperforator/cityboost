@@ -80,14 +80,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         type(exc).__name__,
         request.url.path,
     )
-    # Явно отправляем исключение в Sentry: глобальный обработчик перехватывает
-    # его раньше, чем это сделал бы middleware Sentry.
-    try:
-        import sentry_sdk
-
-        sentry_sdk.capture_exception(exc)
-    except Exception:  # pragma: no cover - Sentry не должен ломать ответ
-        pass
     return JSONResponse(
         status_code=500,
         content={

@@ -59,7 +59,7 @@ export type TicketStatus = 'NEW' | 'IN_WORK' | 'DONE' | 'CLOSED'
 export interface Ticket {
   id: string
   title: string
-  description: string
+  description?: string
   address: string
   category: string
   status: TicketStatus
@@ -165,6 +165,61 @@ export interface AuditLogFilters {
   page?: number
   page_size?: number
   mine?: boolean
+}
+
+// ---- Analytics ----
+
+export interface AnalyticsSummary {
+  created_in_period: number
+  resolved_in_period: number
+  resolved_from_period: number
+  open_now: number
+  overdue_now: number
+  backlog_start: number
+  backlog_end: number
+  resolution_rate: number
+  avg_resolution_hours: number | null
+  median_resolution_hours: number | null
+  created_prev_period: number
+  resolved_prev_period: number
+  avg_resolution_prev_hours: number | null
+  created_delta_pct: number | null
+  resolved_delta_pct: number | null
+  avg_resolution_delta_pct: number | null
+}
+
+export interface AnalyticsDayPoint {
+  date: string
+  created: number
+  resolved: number
+  backlog: number
+}
+
+export interface AnalyticsStatusPoint {
+  status: TicketStatus
+  label: string
+  count: number
+  percent: number
+}
+
+export interface AnalyticsAssigneePoint {
+  admin_id: string
+  name: string
+  created_in_period: number
+  resolved_in_period: number
+  open_now: number
+  overdue: number
+  avg_resolution_hours: number | null
+}
+
+export interface AdminAnalytics {
+  period_days: number
+  generated_at: string
+  summary: AnalyticsSummary
+  by_day: AnalyticsDayPoint[]
+  by_status: AnalyticsStatusPoint[]
+  by_assignee: AnalyticsAssigneePoint[]
+  assignees_total: number
 }
 
 // ---- Common ----

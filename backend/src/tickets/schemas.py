@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from pathlib import Path
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 from src.tickets.models import TicketStatus
 
@@ -30,33 +31,16 @@ class TicketStatusChangeRequest(BaseModel):
 
 # ---------- Ticket ----------
 
-class TicketCreateRequest(BaseModel):
-    """Создание новой заявки."""
-    title: str = Field(..., min_length=1, max_length=255, description="Заголовок заявки")
-    description: str = Field(..., min_length=1, description="Описание проблемы")
-    latitude: float | None = Field(None, ge=-90, le=90, description="Широта")
-    longitude: float | None = Field(None, ge=-180, le=180, description="Долгота")
-    address: str | None = Field(None, max_length=500, description="Текстовый адрес")
-
-
-class TicketUpdateRequest(BaseModel):
-    """Обновление заявки (для пользователя)."""
-    title: str | None = Field(None, max_length=255)
-    description: str | None = None
-
-
-class TicketOut(BaseModel):
-    """Ответ API с данными заявки."""
+class TicketOutBase(BaseModel):
+    """Общие поля заявки, которые нужны и в списке, и в деталях."""
     id: uuid.UUID
     user_id: uuid.UUID
     assigned_to: uuid.UUID | None
     title: str
-    description: str
     status: TicketStatus
     latitude: float | None
     longitude: float | None
     address: str | None
-    close_reason: str | None = None
     user_name: str = ""
     assigned_to_name: str | None = None
     created_at: datetime
@@ -79,17 +63,20 @@ class TicketOut(BaseModel):
                 "user_id": data.user_id,
                 "assigned_to": data.assigned_to,
                 "title": data.title,
-                "description": data.description,
                 "status": data.status,
                 "latitude": data.latitude,
                 "longitude": data.longitude,
                 "address": data.address,
-                "close_reason": data.close_reason,
                 "created_at": data.created_at,
                 "updated_at": data.updated_at,
                 "user_name": user.name if user else "",
                 "assigned_to_name": assignee.name if assignee else None,
             }
+            # Детальные поля добавляем, только если они реально есть у объекта.
+            if hasattr(data, "description"):
+                result["description"] = data.description
+            if hasattr(data, "close_reason"):
+                result["close_reason"] = data.close_reason
             # Для TicketOutDetail связи files/comments передаём, только если они
             # действительно загружены (selectinload), иначе Pydantic возьмёт [].
             if "files" in loaded:
@@ -100,6 +87,17 @@ class TicketOut(BaseModel):
         return data
 
 
+class TicketOut(TicketOutBase):
+    """Полная карточка заявки (без связей)."""
+    description: str
+    close_reason: str | None = None
+
+
+class TicketOutShort(TicketOutBase):
+    """Короткая карточка заявки для списков: без тяжёлого description."""
+    pass
+
+
 class TicketOutDetail(TicketOut):
     """Полная информация о заявке (со связями)."""
     files: list[TicketFileOut] = []
@@ -108,7 +106,7 @@ class TicketOutDetail(TicketOut):
 
 class PaginatedTickets(BaseModel):
     """Пагинированный ответ со списком заявок."""
-    items: list[TicketOut]
+    items: list[TicketOutShort]
     total: int
     page: int
     page_size: int
@@ -136,6 +134,12 @@ class TicketFileOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def file_name(self) -> str:
+        """Имя файла без пути — удобно для отображения на клиенте."""
+        return Path(self.file_path).name
 
 
 # ---------- TicketComments ----------

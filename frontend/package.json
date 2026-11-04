@@ -18,8 +18,6 @@
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
-    "@sentry/browser": "^8.32.0",
-    "@sentry/vue": "^8.32.0",
     "axios": "^1.7.0",
     "leaflet": "^1.9.4",
     "pinia": "^2.1.0",

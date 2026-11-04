@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, func, select
+from sqlalchemy import DateTime, ForeignKey, String, Text, func, select
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
@@ -27,7 +27,10 @@ class AdminActionLog(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
     )
     admin_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True,
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
     )
     action: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True,
@@ -35,8 +38,10 @@ class AdminActionLog(Base):
     target_type: Mapped[str] = mapped_column(
         String(50), nullable=False,
     )
+    # target_id полиморфный: может указывать и на user, и на ticket,
+    # поэтому FK здесь намеренно не ставим — только индекс.
     target_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True,
+        UUID(as_uuid=True), nullable=True, index=True,
     )
     target_name: Mapped[str | None] = mapped_column(
         String(255), nullable=True,
@@ -46,7 +51,7 @@ class AdminActionLog(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True,
     )
 
-    # Связи (без FK constraints — колонки созданы без них)
+    # Связи: admin_id защищён FK, target_id — полиморфный.
     admin = relationship(
         "User",
         foreign_keys="AdminActionLog.admin_id",

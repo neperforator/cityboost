@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, TokenResponse, User, AdminActionLog, AdminDashboardStats, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse, Admin2FAResendResponse } from '@/types'
+import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, TokenResponse, User, AdminActionLog, AdminDashboardStats, AdminAnalytics, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse, Admin2FAResendResponse } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -272,6 +272,7 @@ export interface AdminAPI {
   getHistory(id: string): Promise<TicketHistoryEntry[]>
   getAuditLogs(params?: AuditLogFilters): Promise<PaginatedResponse<AdminActionLog>>
   getStats(): Promise<{ total: number; new: number; in_work: number; done: number; closed: number }>
+  getAnalytics(days?: number): Promise<AdminAnalytics>
 }
 
 export const adminAPI: AdminAPI = {
@@ -315,5 +316,8 @@ export const adminAPI: AdminAPI = {
   },
   getStats() {
     return api.get('/admin/tickets/stats').then(r => r.data)
+  },
+  getAnalytics(days = 30) {
+    return api.get(`/admin/analytics?days=${days}`).then(r => r.data)
   },
 }

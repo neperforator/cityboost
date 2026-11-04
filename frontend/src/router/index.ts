@@ -55,6 +55,12 @@ const routes: RouteRecordRaw[] = [
     meta: { auth: true, admin: true },
   },
   {
+    path: '/admin/analytics',
+    name: 'AdminAnalytics',
+    component: () => import('@/views/AdminAnalyticsView.vue'),
+    meta: { auth: true, admin: true },
+  },
+  {
     path: '/admin/tickets',
     name: 'AdminDashboard',
     component: () => import('@/views/AdminDashboardView.vue'),

@@ -21,7 +21,7 @@ from src.common.audit import AdminLogRepository
 from src.database import get_db
 from src.tickets.constants import OVERDUE_DAYS
 from src.tickets.models import Ticket, TicketStatus
-from src.tickets.schemas import TicketOut
+from src.tickets.schemas import TicketOutShort
 
 admin_dashboard_router = APIRouter(
     prefix="/api/v1/admin",
@@ -65,8 +65,8 @@ class AdminDashboardOut(BaseModel):
     assigned: AssignedStats
     queue: int
     overdue: int
-    recent_assigned: list[TicketOut]
-    queue_tickets: list[TicketOut]
+    recent_assigned: list[TicketOutShort]
+    queue_tickets: list[TicketOutShort]
     recent_activity: list[ActivityOut]
 
 

@@ -28,10 +28,11 @@ from src.common.security import SecurityHeadersMiddleware
 from src.config import settings
 from src.tickets.admin import admin_router
 from src.tickets.admin_dashboard import admin_dashboard_router
+from src.tickets.analytics import analytics_router
 from src.tickets.router import tickets_router
 
 # ---------------------------------------------------------------------------
-# Настройка логирования (до Sentry, чтобы logger уже существовал)
+# Настройка логирования
 # ---------------------------------------------------------------------------
 
 logging.basicConfig(
@@ -57,34 +58,6 @@ if not settings.DEBUG:
         raise RuntimeError(
             "CORS_ORIGINS не может содержать '*' в production: укажите явные Origin'ы",
         )
-
-# ---------------------------------------------------------------------------
-# Sentry (только в production)
-# ---------------------------------------------------------------------------
-
-if not settings.DEBUG and settings.SENTRY_DSN:
-    import sentry_sdk
-
-    def _scrub_event(event, hint):  # noqa: ANN001, ANN201
-        """Удалить потенциальные секреты перед отправкой в Sentry."""
-        request = event.get("request") or {}
-        headers = request.get("headers") or {}
-        for name in ("authorization", "cookie", "set-cookie", "x-api-key"):
-            if name in headers:
-                headers[name] = "[Filtered]"
-        if request.get("data") is not None:
-            request["data"] = "[Filtered]"
-        return event
-
-    sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
-        environment="production",
-        traces_sample_rate=0.1,
-        profiles_sample_rate=0.1,
-        send_default_pii=False,
-        before_send=_scrub_event,
-    )
-    logger.info("Sentry initialized (production mode)")
 
 # ---------------------------------------------------------------------------
 # Создание FastAPI приложения
@@ -168,6 +141,7 @@ app.include_router(auth_router)
 app.include_router(tickets_router)
 app.include_router(admin_router)
 app.include_router(admin_dashboard_router)
+app.include_router(analytics_router)
 app.include_router(admin_user_router)
 app.include_router(admin_audit_router)
 

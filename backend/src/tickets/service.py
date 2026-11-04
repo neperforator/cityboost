@@ -18,7 +18,6 @@ from src.tickets.repository import (
     TicketHistoryRepository,
     TicketRepository,
 )
-from src.tickets.schemas import TicketCreateRequest
 
 STATUS_LABELS: dict[str, str] = {
     "NEW": "Новая",
@@ -41,23 +40,6 @@ class TicketService:
         self.file_repo = TicketFileRepository()
         self.history_repo = TicketHistoryRepository()
         self.comment_repo = TicketCommentRepository()
-
-    async def create_ticket(self, user_id: uuid.UUID, data: TicketCreateRequest) -> Ticket:
-        """Создать новую заявку."""
-        ticket = await self.repo.create(
-            db=self.db,
-            user_id=user_id,
-            title=data.title,
-            description=data.description,
-            latitude=data.latitude,
-            longitude=data.longitude,
-            address=data.address,
-        )
-        await self.history_repo.create(
-            self.db, ticket.id, user_id, "CREATED", None, ticket.status.value,
-            "Заявка создана",
-        )
-        return ticket
 
     async def create_ticket_with_files(
         self,

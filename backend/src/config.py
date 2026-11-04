@@ -113,9 +113,6 @@ class Settings(BaseSettings):
             return self.REFRESH_COOKIE_SECURE
         return not self.DEBUG
 
-    # --- Sentry ---
-    SENTRY_DSN: str = ""
-
     # --- Geocoding ---
     GEOCODING_API_URL: str = "https://nominatim.openstreetmap.org"
     GEOCODING_TIMEOUT_SECONDS: int = 2

@@ -7,9 +7,6 @@ import './style.css'
 
 const app = createApp(App)
 
-// Sentry (продакшен) — установить @sentry/vue и @sentry/browser для включения
-// if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) { ... }
-
 const pinia = createPinia()
 app.use(pinia)
 
