@@ -4,8 +4,19 @@ Tests for auth endpoints: register, login, JWT, profile, ban.
 
 from __future__ import annotations
 
-import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.auth.models import User
+
+
+async def _verify_user(db_session: AsyncSession, email: str) -> None:
+    """Тесты не проверяют email-подтверждение — отмечаем пользователя verified."""
+    result = await db_session.execute(select(User).where(User.email == email))
+    user = result.scalar_one()
+    user.is_verified = True
+    await db_session.flush()
 
 
 class TestRegister:
@@ -31,12 +42,13 @@ class TestRegister:
 
 
 class TestLogin:
-    async def test_login_success(self, client: AsyncClient):
+    async def test_login_success(self, client: AsyncClient, db_session: AsyncSession):
         # Сначала регистрация
         reg = await client.post("/api/v1/auth/register", json={
             "name": "Login User", "email": "login@example.com", "password": "StrongPass1",
         })
         assert reg.status_code == 201
+        await _verify_user(db_session, "login@example.com")
         r = await client.post("/api/v1/auth/login", json={
             "email": "login@example.com", "password": "StrongPass1",
         })
@@ -62,12 +74,13 @@ class TestLogin:
 
 
 class TestProfile:
-    async def test_get_me(self, client: AsyncClient):
-        # Регистрируемся, логинимся и получаем токен
+    async def test_get_me(self, client: AsyncClient, db_session: AsyncSession):
+        # Регистрируемся, подтверждаем email, логинимся и получаем токен
         reg = await client.post("/api/v1/auth/register", json={
             "name": "Me", "email": "me@example.com", "password": "StrongPass1",
         })
         assert reg.status_code == 201
+        await _verify_user(db_session, "me@example.com")
         login_r = await client.post("/api/v1/auth/login", json={
             "email": "me@example.com", "password": "StrongPass1",
         })

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import uuid
 from pathlib import Path
 
@@ -63,7 +64,7 @@ class TicketService:
         user_id: uuid.UUID,
         title: str,
         description: str,
-        file_data_list: list[tuple[str, bytes, str]],  # (mime, contents, filename)
+        file_data_list: list[tuple[str, bytes, str]],  # (mime, contents, extension)
         latitude: float | None = None,
         longitude: float | None = None,
         address: str | None = None,
@@ -80,33 +81,78 @@ class TicketService:
             address=address,
         )
 
-        # Сохраняем файлы на диск и в БД
+        upload_dir = Path(settings.UPLOAD_PATH) / str(ticket.id)
+        created_files: list[Path] = []
+        try:
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            for mime_type, contents, extension in file_data_list:
+                # Имя и расширение генерируем сами: оригинальное имя не используется.
+                unique_name = f"{uuid.uuid4().hex}{extension}"
+                file_path = upload_dir / unique_name
+                file_path.write_bytes(contents)
+                created_files.append(file_path)
+
+                relative_path = f"uploads/tickets/{ticket.id}/{unique_name}"
+                await self.file_repo.create(
+                    self.db,
+                    ticket.id,
+                    relative_path,
+                    len(contents),
+                    mime_type,
+                )
+
+            await self.history_repo.create(
+                self.db, ticket.id, user_id, "CREATED", None, ticket.status.value,
+                f"Заявка создана с {len(file_data_list)} фото",
+            )
+        except Exception:
+            # Не оставляем «осиротевшие» файлы при ошибке записи/БД.
+            for path in created_files:
+                path.unlink(missing_ok=True)
+            with contextlib.suppress(OSError):
+                upload_dir.rmdir()
+            raise
+
+        # Загружаем связи, чтобы сериализация не делала lazy-load в async-контексте.
+        loaded = await self.repo.get_by_id(self.db, ticket.id)
+        return loaded or ticket
+
+    async def save_file(
+        self,
+        *,
+        ticket: Ticket,
+        contents: bytes,
+        extension: str,
+        mime_type: str,
+        author_id: uuid.UUID,
+    ) -> TicketFile:
+        """Сохранить файл на диск и в БД с очисткой при ошибке."""
         upload_dir = Path(settings.UPLOAD_PATH) / str(ticket.id)
         upload_dir.mkdir(parents=True, exist_ok=True)
 
-        for mime_type, contents, original_name in file_data_list:
-            unique_name = f"{uuid.uuid4()}_{original_name}"
-            file_path = upload_dir / unique_name
-            file_path.write_bytes(contents)
+        unique_name = f"{uuid.uuid4().hex}{extension}"
+        file_path = upload_dir / unique_name
+        relative_path = f"uploads/tickets/{ticket.id}/{unique_name}"
 
-            relative_path = f"uploads/tickets/{ticket.id}/{unique_name}"
-            await self.file_repo.create(
+        file_path.write_bytes(contents)
+        try:
+            file_record = await self.file_repo.create(
+                self.db, ticket.id, relative_path, len(contents), mime_type,
+            )
+            await self.history_repo.create(
                 self.db,
                 ticket.id,
-                relative_path,
-                len(contents),
-                mime_type,
+                author_id,
+                "FILE_ADDED",
+                None,
+                ticket.status.value,
+                f"Прикреплён файл {unique_name}",
             )
+        except Exception:
+            file_path.unlink(missing_ok=True)
+            raise
 
-        await self.history_repo.create(
-            self.db, ticket.id, user_id, "CREATED", None, ticket.status.value,
-            f"Заявка создана с {len(file_data_list)} фото",
-        )
-
-        # Обновляем объект, чтобы relations подгрузились
-        await self.db.refresh(ticket, ["files"])
-
-        return ticket
+        return file_record
 
     async def get_ticket(self, ticket_id: uuid.UUID) -> Ticket | None:
         """Получить заявку по ID."""

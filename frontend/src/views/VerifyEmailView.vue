@@ -50,7 +50,19 @@ async function handleVerify() {
   loading.value = true
   error.value = ''
   try {
-    await auth.verifyEmail(email.value, code.value)
+    const result = await auth.verifyEmail(email.value, code.value)
+
+    // Администратору после подтверждения email всё равно нужен вход с 2FA.
+    if (result.requires_2fa) {
+      if (result.challenge_token) {
+        sessionStorage.setItem('cityboost_2fa_challenge', result.challenge_token)
+        router.push('/login')
+      } else {
+        router.push('/login?verified=1')
+      }
+      return
+    }
+
     router.push('/dashboard')
   } catch (err) {
     const msg = (err as Error).message

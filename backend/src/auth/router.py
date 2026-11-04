@@ -7,16 +7,19 @@ Refresh токен — в httpOnly cookie (безопасно от XSS).
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user
-from src.config import settings
-from src.auth.models import User
+from src.auth.models import User, UserRole
 from src.auth.schemas import (
+    Admin2FAResendRequest,
+    Admin2FAResendResponse,
+    Admin2FAVerifyRequest,
     ForgotPasswordRequest,
+    LoginResponse,
     LogoutResponse,
     ResendCodeRequest,
     ResetPasswordRequest,
@@ -28,7 +31,8 @@ from src.auth.schemas import (
     VerifyCodeResponse,
     VerifyEmailRequest,
 )
-from src.auth.service import AuthService
+from src.auth.service import AuthService, ensure_utc
+from src.config import settings
 from src.database import get_db
 
 auth_router = APIRouter(prefix="/api/v1/auth", tags=["Аутентификация"])
@@ -45,7 +49,7 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         value=refresh_token,
         max_age=max_age,
         httponly=True,
-        secure=settings.REFRESH_COOKIE_SECURE,
+        secure=settings.refresh_cookie_secure,
         samesite="lax",
         path=settings.REFRESH_COOKIE_PATH,
     )
@@ -57,9 +61,15 @@ def _clear_refresh_cookie(response: Response) -> None:
         key=settings.REFRESH_COOKIE_NAME,
         path=settings.REFRESH_COOKIE_PATH,
         httponly=True,
-        secure=settings.REFRESH_COOKIE_SECURE,
+        secure=settings.refresh_cookie_secure,
         samesite="lax",
     )
+
+
+def _no_store(response: Response) -> None:
+    """Запретить кэширование ответов с токенами."""
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
 
 
 # ─── Endpoints ─────────────────────────────────────────────────────
@@ -84,23 +94,25 @@ async def register(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
-        )
+        ) from None
     return user
 
 
 @auth_router.post(
     "/login",
-    response_model=TokenResponse,
+    response_model=LoginResponse,
     summary="Вход в систему",
     description="Аутентификация по email и паролю. "
+    "Для администраторов возвращает requires_2fa=true и challenge_token: "
+    "access/refresh токены выдаются только после проверки кода с email. "
     "Access токен — в теле ответа, refresh токен — в httpOnly cookie.",
 )
 async def login(
     data: UserLoginRequest,
     response: Response,
     db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
-    """Аутентифицировать пользователя и вернуть access токен."""
+) -> LoginResponse:
+    """Аутентифицировать пользователя и вернуть access токен или запрос 2FA."""
     service = AuthService(db)
     user = await service.authenticate(data.email, data.password)
     if not user:
@@ -115,18 +127,22 @@ async def login(
             detail=f"Подтвердите email. Код отправлен на {user.email}",
         )
 
-    access_token = service.create_access_token(
-        data={"sub": str(user.id), "role": user.role.value},
-    )
-    refresh_token = service.create_raw_refresh_token(user.id)
-    user.refresh_token_hash = service.hash_refresh_token(refresh_token)
-    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(
-        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
-    )
-    await db.flush()
+    # Администраторы проходят обязательную проверку кода на email.
+    if user.role == UserRole.ADMIN and settings.ADMIN_2FA_ENABLED:
+        try:
+            challenge_token = await service.create_admin_2fa_challenge(user)
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from None
+        _no_store(response)
+        return LoginResponse(requires_2fa=True, challenge_token=challenge_token)
 
+    access_token, refresh_token = await service.issue_tokens(user)
     _set_refresh_cookie(response, refresh_token)
-    return TokenResponse(access_token=access_token)
+    _no_store(response)
+    return LoginResponse(access_token=access_token)
 
 
 @auth_router.post(
@@ -172,20 +188,57 @@ async def refresh(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Недействительный refresh токен",
-        )
+        ) from None
 
-    # Находим пользователя
+    # Находим пользователя с блокировкой строки, чтобы ротация была атомарной.
     from src.auth.repository import UserRepository
     repo = UserRepository()
-    user = await repo.get_by_id(db, uid)
+    user = await repo.get_by_id_for_update(db, uid)
     if user is None:
+        _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Пользователь не найден",
         )
 
+    # Забаненный/неподтверждённый пользователь не может обновлять токены.
+    if user.is_banned or not user.is_verified:
+        service.revoke_sessions(user)
+        await db.commit()
+        _clear_refresh_cookie(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Сессия недействительна",
+        )
+
+    # Токен должен быть выдан для актуальной версии сессии.
+    if payload.get("ver", 0) != user.token_version:
+        service.revoke_sessions(user)
+        await db.commit()
+        _clear_refresh_cookie(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Сессия недействительна",
+        )
+
+    # Для администраторов refresh разрешён только для сессии, прошедшей 2FA.
+    two_factor_verified = payload.get("amr") == "2fa"
+    if (
+        user.role == UserRole.ADMIN
+        and settings.ADMIN_2FA_ENABLED
+        and not two_factor_verified
+    ):
+        service.revoke_sessions(user)
+        await db.commit()
+        _clear_refresh_cookie(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Требуется повторный вход с подтверждением по email",
+        )
+
     # Проверяем хеш refresh токена в БД
     if user.refresh_token_hash is None:
+        _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh токен не найден в системе",
@@ -193,9 +246,8 @@ async def refresh(
 
     if not service.verify_refresh_token_hash(refresh_token, user.refresh_token_hash):
         # Несовпадение — возможна кража токена → аннулируем все refresh токены пользователя
-        user.refresh_token_hash = None
-        user.refresh_token_expires = None
-        await db.flush()
+        service.revoke_sessions(user)
+        await db.commit()
         _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -203,28 +255,26 @@ async def refresh(
         )
 
     # Проверяем срок действия в БД
-    if user.refresh_token_expires and user.refresh_token_expires < datetime.now(timezone.utc):
-        user.refresh_token_hash = None
-        user.refresh_token_expires = None
-        await db.flush()
+    if user.refresh_token_expires is None or ensure_utc(
+        user.refresh_token_expires,
+    ) < datetime.now(UTC):
+        service.revoke_sessions(user)
+        await db.commit()
         _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh токен истёк",
         )
 
-    # Ротируем: создаём новую пару, старый хеш заменяем
-    new_access_token = service.create_access_token(
-        data={"sub": str(user.id), "role": user.role.value},
+    # Ротируем: создаём новую пару, старый хеш заменяем.
+    new_access_token, new_refresh_token = await service.issue_tokens(
+        user,
+        two_factor_verified=two_factor_verified,
     )
-    new_refresh_token = service.create_raw_refresh_token(user.id)
-    user.refresh_token_hash = service.hash_refresh_token(new_refresh_token)
-    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(
-        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
-    )
-    await db.flush()
+    await db.commit()
 
     _set_refresh_cookie(response, new_refresh_token)
+    _no_store(response)
     return TokenResponse(access_token=new_access_token)
 
 
@@ -233,7 +283,9 @@ async def refresh(
     response_model=VerifyCodeResponse,
     summary="Подтвердить email",
     description="Подтверждает email 6-значным кодом из письма. "
-    "При успехе возвращает access токен и данные пользователя. "
+    "Для обычных пользователей сразу возвращает access токен. "
+    "Для администратора возвращает только requires_2fa=true: "
+    "после подтверждения email нужно войти с паролем и пройти 2FA. "
     "Refresh токен — в httpOnly cookie.",
 )
 async def verify_email(
@@ -250,21 +302,86 @@ async def verify_email(
             detail="Неверный или просроченный код подтверждения",
         )
 
-    access_token = service.create_access_token(
-        data={"sub": str(user.id), "role": user.role.value},
-    )
-    refresh_token = service.create_raw_refresh_token(user.id)
-    user.refresh_token_hash = service.hash_refresh_token(refresh_token)
-    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(
-        days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
-    )
-    await db.flush()
+    # Администратору после подтверждения email всё равно нужен вход по паролю + 2FA.
+    # Токены здесь не выдаём и 2FA-код не отправляем: пароль ещё не проверен.
+    if user.role == UserRole.ADMIN and settings.ADMIN_2FA_ENABLED:
+        await db.refresh(user)
+        _no_store(response)
+        return VerifyCodeResponse(user=user, requires_2fa=True)
+
+    access_token, refresh_token = await service.issue_tokens(user)
 
     # Обновляем объект для сериализации
     await db.refresh(user)
 
     _set_refresh_cookie(response, refresh_token)
+    _no_store(response)
     return VerifyCodeResponse(access_token=access_token, user=user)
+
+
+@auth_router.post(
+    "/admin-2fa/verify",
+    response_model=TokenResponse,
+    summary="Подтвердить вход администратора",
+    description="Проверяет 6-значный код из письма и только при успехе "
+    "выдаёт access/refresh токены.",
+)
+async def verify_admin_2fa(
+    data: Admin2FAVerifyRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Завершить вход администратора после проверки кода 2FA."""
+    service = AuthService(db)
+    user = await service.verify_admin_2fa(data.challenge_token, data.code)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный или просроченный код подтверждения. Запросите новый код.",
+        )
+
+    access_token, refresh_token = await service.issue_tokens(
+        user,
+        two_factor_verified=True,
+    )
+    _set_refresh_cookie(response, refresh_token)
+    _no_store(response)
+    return TokenResponse(access_token=access_token)
+
+
+@auth_router.post(
+    "/admin-2fa/resend",
+    response_model=Admin2FAResendResponse,
+    summary="Отправить код 2FA повторно",
+    description="Генерирует новый код и отправляет его на email администратора. "
+    "Между отправками действует задержка.",
+)
+async def resend_admin_2fa(
+    data: Admin2FAResendRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Admin2FAResendResponse:
+    """Повторно отправить код подтверждения администратора."""
+    service = AuthService(db)
+    result = await service.resend_admin_2fa(data.challenge_token)
+    if result == "invalid":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Сессия подтверждения истекла. Войдите заново.",
+        )
+    if result == "cooldown":
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Код уже отправлен. Повторите попытку через "
+                f"{settings.ADMIN_2FA_RESEND_COOLDOWN_SECONDS} секунд."
+            ),
+        )
+    if result == "email_failed":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Не удалось отправить код на email. Попробуйте позже.",
+        )
+    return Admin2FAResendResponse()
 
 
 @auth_router.post(
@@ -283,10 +400,10 @@ async def logout(
     repo = UserRepository()
     user = await repo.get_by_id(db, current_user.id)
     if user:
-        user.refresh_token_hash = None
-        user.refresh_token_expires = None
-        await db.flush()
+        AuthService.revoke_sessions(user)
+        await db.commit()
     _clear_refresh_cookie(response)
+    _no_store(response)
     return LogoutResponse()
 
 
@@ -299,11 +416,21 @@ async def logout(
 )
 async def resend_code(
     data: ResendCodeRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Отправить новый код подтверждения на email."""
     service = AuthService(db)
-    await service.resend_verification_code(data.email)
+    sent = await service.resend_verification_code(data.email)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Код уже отправлен. Повторите попытку через "
+                f"{settings.VERIFICATION_RESEND_COOLDOWN_SECONDS} секунд."
+            ),
+        )
+    _no_store(response)
     return {"message": "Новый код отправлен на указанный email"}
 
 
@@ -328,6 +455,7 @@ async def get_me(
 )
 async def update_me(
     data: UserUpdateRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> User:
@@ -339,9 +467,13 @@ async def update_me(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
-        )
+        ) from None
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
+    if data.new_password:
+        # Смена пароля инвалидировала сессии — удаляем cookie.
+        _clear_refresh_cookie(response)
+    _no_store(response)
     return user
 
 
@@ -354,11 +486,13 @@ async def update_me(
 )
 async def forgot_password(
     data: ForgotPasswordRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Запросить сброс пароля."""
     service = AuthService(db)
     await service.generate_reset_token(data.email)
+    _no_store(response)
     return {
         "message": "Если email зарегистрирован, вы получите письмо со ссылкой для сброса пароля",
     }
@@ -372,6 +506,7 @@ async def forgot_password(
 )
 async def reset_password(
     data: ResetPasswordRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Сбросить пароль по токену из письма."""
@@ -382,10 +517,12 @@ async def reset_password(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
-        )
+        ) from None
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Недействительный или просроченный токен сброса пароля",
         )
+    _clear_refresh_cookie(response)
+    _no_store(response)
     return {"message": "Пароль успешно изменён"}

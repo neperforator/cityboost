@@ -16,6 +16,7 @@ from src.database import Base
 
 # Импорт всех моделей, чтобы Alembic их обнаружил
 import src.auth.models  # noqa: F401
+import src.common.audit  # noqa: F401
 import src.tickets.models  # noqa: F401
 
 config = context.config

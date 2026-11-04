@@ -35,11 +35,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "camera=(), microphone=(), geolocation=(), payment=()"
         )
 
-        # HTS. только если не DEBUG
+        # HSTS только если не DEBUG
         if not getattr(request.app.state, "debug", True):
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
             )
+
+        # Ответы аутентификации содержат токены/чувствительные данные.
+        if request.url.path.startswith("/api/v1/auth"):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
 
         # Content-Security-Policy для API (не для статики)
         # Статика frontend'а управляется nginx

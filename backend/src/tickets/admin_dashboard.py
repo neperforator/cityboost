@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -115,7 +115,7 @@ async def admin_dashboard(
     ) or 0
 
     # Просроченные: в работе на мне дольше OVERDUE_DAYS.
-    overdue_cutoff = datetime.now(timezone.utc) - timedelta(days=OVERDUE_DAYS)
+    overdue_cutoff = datetime.now(UTC) - timedelta(days=OVERDUE_DAYS)
     overdue = (
         await db.scalar(
             select(func.count())

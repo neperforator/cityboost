@@ -1,5 +1,5 @@
-import axios, { type AxiosError, type AxiosResponse } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, User, AdminActionLog, AdminDashboardStats, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse } from '@/types'
+import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, TokenResponse, User, AdminActionLog, AdminDashboardStats, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse, Admin2FAResendResponse } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -7,19 +7,30 @@ const api = axios.create({
   withCredentials: true, // отправляет httpOnly cookie с refresh токеном
 })
 
+// ---- Access token (только в памяти; refresh — в httpOnly cookie) ----
+
+let accessToken: string | null = null
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token
+}
+
+export function getAccessToken(): string | null {
+  return accessToken
+}
+
 // ---- Silent token refresh ----
 
 let isRefreshing = false
 let pendingRequests: Array<{
-  config: Parameters<typeof api>[0]
+  config: InternalAxiosRequestConfig
   resolve: (value: AxiosResponse) => void
   reject: (reason: unknown) => void
 }> = []
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('cityboost_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`
   }
   return config
 })
@@ -42,8 +53,13 @@ api.interceptors.response.use(
       return Promise.reject(new Error(errorText))
     }
 
-    // Don't try to refresh when the refresh endpoint itself returns 401
+    // 2FA-ошибки обрабатываются на форме, без попытки refresh.
     const requestUrl = err.config?.url || ''
+    if (requestUrl.includes('/auth/admin-2fa/')) {
+      return Promise.reject(new Error(errorText))
+    }
+
+    // Don't try to refresh when the refresh endpoint itself returns 401
     if (requestUrl.includes('/auth/refresh')) {
       clearAuthAndRedirect()
       return Promise.reject(new Error('Сессия истекла'))
@@ -61,14 +77,14 @@ api.interceptors.response.use(
 
     try {
       // Refresh token отправляется автоматически через httpOnly cookie
-      const { data } = await axios.post<LoginResponse>(
+      const { data } = await axios.post<TokenResponse>(
         '/api/v1/auth/refresh',
         {},
         { withCredentials: true },
       )
 
-      // Store new access token
-      localStorage.setItem('cityboost_token', data.access_token)
+      // Store new access token (в памяти, не в localStorage)
+      setAccessToken(data.access_token)
 
       // Retry all queued requests
       const queue = pendingRequests.slice()
@@ -101,7 +117,7 @@ api.interceptors.response.use(
 )
 
 function clearAuthAndRedirect() {
-  localStorage.removeItem('cityboost_token')
+  setAccessToken(null)
   localStorage.removeItem('cityboost_user')
   // Refresh cookie чистится через API /auth/logout (вызывается из стора)
   if (!window.location.hash.startsWith('#/login')) {
@@ -120,9 +136,11 @@ export interface AuthAPI {
   updateProfile(data: Partial<{ name: string; current_password: string; new_password: string }>): Promise<User>
   forgotPassword(email: string): Promise<{ message: string }>
   resetPassword(token: string, password: string): Promise<{ message: string }>
-  refresh(): Promise<LoginResponse>
+  refresh(): Promise<TokenResponse>
   verifyEmail(email: string, code: string): Promise<VerifyCodeResponse>
   resendCode(email: string): Promise<{ message: string }>
+  verifyAdmin2FA(challengeToken: string, code: string): Promise<TokenResponse>
+  resendAdmin2FA(challengeToken: string): Promise<Admin2FAResendResponse>
   logout(): Promise<unknown>
 }
 
@@ -153,6 +171,17 @@ export const authAPI: AuthAPI = {
   },
   resendCode(email) {
     return api.post('/auth/resend-code', { email }).then(r => r.data)
+  },
+  verifyAdmin2FA(challengeToken, code) {
+    return api.post('/auth/admin-2fa/verify', {
+      challenge_token: challengeToken,
+      code,
+    }).then(r => r.data)
+  },
+  resendAdmin2FA(challengeToken) {
+    return api.post('/auth/admin-2fa/resend', {
+      challenge_token: challengeToken,
+    }).then(r => r.data)
   },
   logout() {
     return api.post('/auth/logout').then(r => r.data)

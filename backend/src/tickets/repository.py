@@ -15,6 +15,11 @@ from src.auth.models import User
 from src.tickets.models import Ticket, TicketComment, TicketFile, TicketHistory, TicketStatus
 
 
+def _escape_like(value: str) -> str:
+    """Экранировать спецсимволы LIKE."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class TicketRepository:
     """Репозиторий CRUD-операций для заявок."""
 
@@ -136,8 +141,8 @@ class TicketRepository:
     async def list_by_status_and_date(
         db: AsyncSession,
         status: TicketStatus | None = None,
-        date_from: str | None = None,
-        date_to: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         page: int = 1,
         page_size: int = 20,
         search: str | None = None,
@@ -156,7 +161,7 @@ class TicketRepository:
         # Поиск по всем текстовым полям заявки, заявителю и исполнителю.
         term = search.strip() if search else ""
         if term:
-            pattern = f"%{term}%"
+            pattern = f"%{_escape_like(term)}%"
             assignee = aliased(User)
             query = (
                 query
@@ -169,15 +174,15 @@ class TicketRepository:
                 .outerjoin(assignee, Ticket.assigned_to == assignee.id)
             )
             search_filter = or_(
-                Ticket.title.ilike(pattern),
-                Ticket.description.ilike(pattern),
-                Ticket.address.ilike(pattern),
-                Ticket.close_reason.ilike(pattern),
-                cast(Ticket.id, Text).ilike(pattern),
-                User.name.ilike(pattern),
-                User.email.ilike(pattern),
-                assignee.name.ilike(pattern),
-                assignee.email.ilike(pattern),
+                Ticket.title.ilike(pattern, escape="\\"),
+                Ticket.description.ilike(pattern, escape="\\"),
+                Ticket.address.ilike(pattern, escape="\\"),
+                Ticket.close_reason.ilike(pattern, escape="\\"),
+                cast(Ticket.id, Text).ilike(pattern, escape="\\"),
+                User.name.ilike(pattern, escape="\\"),
+                User.email.ilike(pattern, escape="\\"),
+                assignee.name.ilike(pattern, escape="\\"),
+                assignee.email.ilike(pattern, escape="\\"),
             )
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)

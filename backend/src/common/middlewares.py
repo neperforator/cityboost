@@ -28,7 +28,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
-        setattr(request.state, "request_id", request_id)
+        request.state.request_id = request_id
 
         start_time = time.monotonic()
 

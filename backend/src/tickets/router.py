@@ -5,23 +5,22 @@ API-роуты для работы с заявками (пользователь
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user
-from src.auth.models import User
+from src.auth.models import User, UserRole
 from src.config import settings
 from src.database import get_db
-from src.tickets.models import TicketStatus
+from src.tickets.models import Ticket, TicketStatus
 from src.tickets.schemas import (
     PaginatedTickets,
     TicketCommentCreate,
     TicketCommentOut,
-    TicketCreateRequest,
     TicketFileOut,
-    TicketOut,
     TicketOutDetail,
     TicketStats,
 )
@@ -29,51 +28,61 @@ from src.tickets.service import TicketService
 
 tickets_router = APIRouter(prefix="/api/v1/tickets", tags=["Заявки"])
 
-ALLOWED_MIME_TYPES = {"image/jpeg", "image/png"}
+# Соответствие формата Pillow → MIME и безопасное расширение.
+_IMAGE_FORMATS: dict[str, tuple[str, str]] = {
+    "JPEG": ("image/jpeg", ".jpg"),
+    "PNG": ("image/png", ".png"),
+}
 
-# Максимальный размер файла: 10 МБ (стандартный лимит nginx)
-MAX_FILE_SIZE = 10 * 1024 * 1024
-MAX_FILES_PER_TICKET = 5
 
-
-async def _validate_and_save_image(file: UploadFile) -> tuple[bytes, str]:
-    """Проверить файл (тип, сигнатура, размер) и вернуть (содержимое, имя_файла)."""
-    if file.content_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Недопустимый тип файла: {file.content_type}. Разрешены: JPEG, PNG",
-        )
-
-    contents = await file.read()
-    file_size = len(contents)
-
-    if file_size == 0:
+async def _read_upload(file: UploadFile) -> bytes:
+    """Прочитать файл с ограничением размера, не загружая лишнее в память."""
+    contents = await file.read(settings.MAX_FILE_SIZE_BYTES + 1)
+    if not contents:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Файл пустой",
         )
-
-    # Проверка сигнатуры
-    image_signatures = {
-        b"\xff\xd8\xff": "image/jpeg",
-        b"\x89PNG\r\n\x1a\n": "image/png",
-    }
-    is_valid = any(
-        contents[:len(sig)] == sig for sig in image_signatures
-    )
-    if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Файл не является изображением (проверка по сигнатуре не пройдена)",
-        )
-
-    if file_size > MAX_FILE_SIZE:
+    if len(contents) > settings.MAX_FILE_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Файл слишком большой. Максимум 10 МБ",
+            detail=f"Файл слишком большой. Максимум {settings.MAX_FILE_SIZE_MB} МБ",
         )
+    return contents
 
-    return contents, file.filename or "image.jpg"
+
+def _detect_image(contents: bytes) -> tuple[str, str]:
+    """Проверить изображение через Pillow и вернуть (mime, расширение)."""
+    try:
+        # verify() проверяет целостность, но после него объект нужно открыть заново.
+        with Image.open(BytesIO(contents)) as image:
+            image.verify()
+        with Image.open(BytesIO(contents)) as image:
+            image_format = image.format
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Файл не является корректным изображением",
+        ) from None
+
+    if image_format not in _IMAGE_FORMATS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Разрешены только изображения JPEG и PNG",
+        )
+    return _IMAGE_FORMATS[image_format]
+
+
+async def _validate_image(file: UploadFile) -> tuple[str, bytes, str]:
+    """Проверить загруженный файл и вернуть (mime, содержимое, расширение)."""
+    contents = await _read_upload(file)
+    mime_type, extension = _detect_image(contents)
+    return mime_type, contents, extension
+
+
+def _can_access_ticket(ticket: Ticket, user: User) -> bool:
+    """Автор заявки или администратор."""
+    return ticket.user_id == user.id or user.role == UserRole.ADMIN
 
 
 @tickets_router.post(
@@ -101,17 +110,17 @@ async def create_ticket(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Необходимо загрузить хотя бы одно фото",
         )
-    if len(files) > MAX_FILES_PER_TICKET:
+    if len(files) > settings.MAX_FILES_PER_TICKET:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Максимум {MAX_FILES_PER_TICKET} файлов за раз",
+            detail=f"Максимум {settings.MAX_FILES_PER_TICKET} файлов за раз",
         )
 
-    # Валидируем и читаем каждый файл
-    file_data_list: list[tuple[str, bytes, str]] = []  # (mime, contents, filename)
-    for f in files:
-        contents, fname = await _validate_and_save_image(f)
-        file_data_list.append((f.content_type or "image/jpeg", contents, fname))
+    # Сначала валидируем все файлы, чтобы не создавать заявку с частичным набором.
+    file_data_list: list[tuple[str, bytes, str]] = []  # (mime, contents, extension)
+    for file in files:
+        mime_type, contents, extension = await _validate_image(file)
+        file_data_list.append((mime_type, contents, extension))
 
     service = TicketService(db)
     ticket = await service.create_ticket_with_files(
@@ -133,8 +142,8 @@ async def create_ticket(
     description="Список заявок текущего пользователя с пагинацией и фильтром по статусу.",
 )
 async def list_tickets(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     status: TicketStatus | None = Query(None, description="Фильтр по статусу"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -183,7 +192,7 @@ async def get_ticket(
     ticket = await service.get_ticket(ticket_id)
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
-    if ticket.user_id != current_user.id and current_user.role.value != "admin":
+    if not _can_access_ticket(ticket, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Только автор заявки или администратор может просматривать заявку",
@@ -212,61 +221,33 @@ async def get_ticket(
     response_model=TicketFileOut,
     status_code=status.HTTP_201_CREATED,
     summary="Загрузить файл",
-    description="Загрузить файл (JPEG/PNG) к заявке. Макс. 5 МБ, не более 5 файлов на заявку.",
+    description="Загрузить файл (JPEG/PNG) к заявке. "
+    "Максимум 5 МБ, не более 5 файлов на заявку.",
 )
 async def upload_file(
     ticket_id: uuid.UUID,
-    file: UploadFile,
+    file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> TicketFileOut:
     """Загрузить файл в заявку."""
-    # Валидация MIME-типа
-    if file.content_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Недопустимый тип файла: {file.content_type}. Разрешены: JPEG, PNG",
-        )
+    mime_type, contents, extension = await _validate_image(file)
 
-    # Чтение содержимого для проверки размера и сигнатуры
-    contents = await file.read()
-    file_size = len(contents)
-
-    # Валидация по magic bytes (реальный тип файла)
-    if file_size > 0:
-        image_signatures = {
-            b"\xff\xd8\xff": "image/jpeg",
-            b"\x89PNG\r\n\x1a\n": "image/png",
-        }
-        is_valid_image = False
-        for signature, mime in image_signatures.items():
-            if contents[:len(signature)] == signature:
-                is_valid_image = True
-                break
-        if not is_valid_image:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Файл не является изображением (проверка по сигнатуре файла не пройдена)",
-            )
-
-    if file_size > settings.MAX_FILE_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Файл слишком большой. Максимум {settings.MAX_FILE_SIZE_MB} МБ",
-        )
-
-    # Проверяем, что заявка существует и принадлежит пользователю (или он админ)
     service = TicketService(db)
     ticket = await service.get_ticket(ticket_id)
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
-    if ticket.user_id != current_user.id and current_user.role.value != "admin":
+    if not _can_access_ticket(ticket, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Только автор заявки или администратор может загружать файлы",
         )
+    if ticket.status in (TicketStatus.DONE, TicketStatus.CLOSED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя загрузить файл к заявке со статусом «Выполнена» или «Закрыта»",
+        )
 
-    # Проверка количества файлов
     existing_files = await service.get_file_count(ticket_id)
     if existing_files >= settings.MAX_FILES_PER_TICKET:
         raise HTTPException(
@@ -274,29 +255,19 @@ async def upload_file(
             detail=f"Превышен лимит файлов ({settings.MAX_FILES_PER_TICKET})",
         )
 
-    # Сохранение файла на диск
-    upload_path = Path(settings.UPLOAD_PATH) / str(ticket_id)
-    upload_path.mkdir(parents=True, exist_ok=True)
-
-    unique_filename = f"{uuid.uuid4()}_{file.filename}"
-    file_full_path = upload_path / unique_filename
-    file_full_path.write_bytes(contents)
-
-    # Сохранение в БД
-    relative_path = f"uploads/tickets/{ticket_id}/{unique_filename}"
     try:
-        file_record = await service.add_file(
-            ticket_id=ticket_id,
-            file_path=relative_path,
-            file_size=file_size,
-            mime_type=file.content_type,
+        file_record = await service.save_file(
+            ticket=ticket,
+            contents=contents,
+            extension=extension,
+            mime_type=mime_type,
             author_id=current_user.id,
         )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
-        )
+        ) from None
 
     return file_record
 
@@ -320,7 +291,7 @@ async def add_comment(
     ticket = await service.get_ticket(ticket_id)
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
-    if ticket.user_id != current_user.id and current_user.role.value != "admin":
+    if not _can_access_ticket(ticket, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Только автор заявки или администратор может добавлять комментарии",
@@ -331,7 +302,7 @@ async def add_comment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
-        )
+        ) from None
     return TicketCommentOut(
         id=comment.id,
         ticket_id=comment.ticket_id,

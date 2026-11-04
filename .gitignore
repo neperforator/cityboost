@@ -35,6 +35,7 @@ certbot/conf/
 # Storage (user uploads)
 storage/uploads/
 !storage/uploads/.gitkeep
+backend/storage/
 
 # Logs
 *.log

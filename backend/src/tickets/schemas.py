@@ -69,9 +69,12 @@ class TicketOut(BaseModel):
     def populate_ticket_names(cls, data):
         """Извлекаем имена пользователя и исполнителя из связанных ORM объектов."""
         if not isinstance(data, dict):
-            user = getattr(data, 'user', None)
-            assignee = getattr(data, 'assignee', None)
-            return {
+            # Берём только уже загруженные связи из __dict__, чтобы не вызвать
+            # lazy-load (у связей lazy="raise") при сериализации списка.
+            loaded = getattr(data, "__dict__", {})
+            user = loaded.get("user")
+            assignee = loaded.get("assignee")
+            result = {
                 "id": data.id,
                 "user_id": data.user_id,
                 "assigned_to": data.assigned_to,
@@ -87,13 +90,20 @@ class TicketOut(BaseModel):
                 "user_name": user.name if user else "",
                 "assigned_to_name": assignee.name if assignee else None,
             }
+            # Для TicketOutDetail связи files/comments передаём, только если они
+            # действительно загружены (selectinload), иначе Pydantic возьмёт [].
+            if "files" in loaded:
+                result["files"] = loaded["files"]
+            if "comments" in loaded:
+                result["comments"] = loaded["comments"]
+            return result
         return data
 
 
 class TicketOutDetail(TicketOut):
     """Полная информация о заявке (со связями)."""
-    files: list["TicketFileOut"] = []
-    comments: list["TicketCommentOut"] = []
+    files: list[TicketFileOut] = []
+    comments: list[TicketCommentOut] = []
 
 
 class PaginatedTickets(BaseModel):

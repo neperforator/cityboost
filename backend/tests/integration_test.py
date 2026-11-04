@@ -265,8 +265,8 @@ async def test_admin_flow(client: httpx.AsyncClient):
 
     # Назначим админа через прямое обновление БД
     # Используем отдельное подключение к БД
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
     db_url = "postgresql+asyncpg://cityboost:cityboost_secret@db:5432/cityboost"
     engine = create_async_engine(db_url)
@@ -300,7 +300,7 @@ async def test_admin_flow(client: httpx.AsyncClient):
         )
         assert r.status_code == 200
         assert r.json()["role"] == "admin"
-        ok(f"Смена роли пользователю — 200, новая роль: admin")
+        ok("Смена роли пользователю — 200, новая роль: admin")
 
         # Возвращаем обратно
         r = await client.patch(
@@ -309,7 +309,7 @@ async def test_admin_flow(client: httpx.AsyncClient):
         )
         assert r.status_code == 200
         assert r.json()["role"] == "user"
-        ok(f"Смена роли обратно на user — 200")
+        ok("Смена роли обратно на user — 200")
 
     # 4.3 Бан пользователя
     user_to_ban = [u for u in users if u["role"] == "user" and u["id"] != admin_id]
@@ -321,7 +321,7 @@ async def test_admin_flow(client: httpx.AsyncClient):
         )
         assert r.status_code == 200
         assert r.json()["is_banned"] is True
-        ok(f"Бан пользователя — 200, is_banned=True")
+        ok("Бан пользователя — 200, is_banned=True")
 
         # Повторный бан (уже забанен)
         r = await client.patch(
@@ -338,7 +338,7 @@ async def test_admin_flow(client: httpx.AsyncClient):
         )
         assert r.status_code == 200
         assert r.json()["is_banned"] is False
-        ok(f"Разбан пользователя — 200, is_banned=False")
+        ok("Разбан пользователя — 200, is_banned=False")
 
         # Повторный разбан
         r = await client.patch(

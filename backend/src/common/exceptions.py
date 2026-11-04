@@ -44,12 +44,22 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Обработчик ошибок валидации Pydantic."""
     errors = exc.errors()
-    first_error = errors[0] if errors else {}
+    # Никогда не возвращаем и не логируем `input`/`ctx`: там может быть пароль,
+    # токен или другие чувствительные данные.
+    safe_errors = [
+        {
+            "loc": list(error.get("loc", [])),
+            "msg": error.get("msg", "Ошибка валидации данных"),
+            "type": error.get("type", "value_error"),
+        }
+        for error in errors
+    ]
+    first_error = safe_errors[0] if safe_errors else {}
     message = first_error.get("msg", "Ошибка валидации данных")
 
     logger.warning(
         "Validation error: %s | path: %s",
-        errors,
+        safe_errors,
         request.url.path,
     )
 
@@ -58,7 +68,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "error": message,
             "code": "VALIDATION_ERROR",
-            "details": errors,
+            "details": safe_errors,
         },
     )
 
@@ -67,9 +77,17 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     """Глобальный обработчик непредвиденных исключений (500)."""
     logger.exception(
         "Unhandled exception: %s | path: %s",
-        str(exc),
+        type(exc).__name__,
         request.url.path,
     )
+    # Явно отправляем исключение в Sentry: глобальный обработчик перехватывает
+    # его раньше, чем это сделал бы middleware Sentry.
+    try:
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(exc)
+    except Exception:  # pragma: no cover - Sentry не должен ломать ответ
+        pass
     return JSONResponse(
         status_code=500,
         content={

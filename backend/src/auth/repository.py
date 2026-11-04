@@ -12,6 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models import User
 
 
+def _escape_like(value: str) -> str:
+    """Экранировать спецсимволы LIKE, чтобы поиск не превращался в шаблон."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class UserRepository:
     """Репозиторий операций над пользователями."""
 
@@ -44,9 +49,19 @@ class UserRepository:
         return await db.get(User, user_id)
 
     @staticmethod
+    async def get_by_id_for_update(db: AsyncSession, user_id: uuid.UUID) -> User | None:
+        """Получить пользователя по ID с блокировкой строки (для ротации токенов)."""
+        result = await db.execute(
+            select(User).where(User.id == user_id).with_for_update(),
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def get_by_email(db: AsyncSession, email: str) -> User | None:
-        """Получить пользователя по email."""
-        result = await db.execute(select(User).where(User.email == email))
+        """Получить пользователя по email (регистронезависимо)."""
+        result = await db.execute(
+            select(User).where(func.lower(User.email) == email.strip().lower()),
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -78,12 +93,14 @@ class UserRepository:
         count_query = select(func.count()).select_from(User)
 
         if search:
-            pattern = f"%{search}%"
+            pattern = f"%{_escape_like(search)}%"
             query = query.where(
-                User.name.ilike(pattern) | User.email.ilike(pattern)
+                User.name.ilike(pattern, escape="\\")
+                | User.email.ilike(pattern, escape="\\")
             )
             count_query = count_query.where(
-                User.name.ilike(pattern) | User.email.ilike(pattern)
+                User.name.ilike(pattern, escape="\\")
+                | User.email.ilike(pattern, escape="\\")
             )
 
         if is_banned is not None:

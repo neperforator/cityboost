@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 

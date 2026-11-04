@@ -51,11 +51,37 @@ class VerifyEmailRequest(BaseModel):
     code: str = Field(..., min_length=6, max_length=6, description="6-значный код из письма")
 
 
+class LoginResponse(BaseModel):
+    """Ответ на вход: либо токен, либо требование 2FA для администратора."""
+    access_token: str | None = None
+    token_type: str = "bearer"
+    requires_2fa: bool = False
+    challenge_token: str | None = None
+
+
+class Admin2FAVerifyRequest(BaseModel):
+    """Проверка кода двухфакторной аутентификации администратора."""
+    challenge_token: str = Field(..., description="Короткоживущий токен из ответа на вход")
+    code: str = Field(..., min_length=6, max_length=6, description="6-значный код из письма")
+
+
+class Admin2FAResendRequest(BaseModel):
+    """Повторная отправка кода 2FA."""
+    challenge_token: str = Field(..., description="Короткоживущий токен из ответа на вход")
+
+
+class Admin2FAResendResponse(BaseModel):
+    """Ответ на повторную отправку кода 2FA."""
+    message: str = "Новый код отправлен на email"
+
+
 class VerifyCodeResponse(BaseModel):
     """Ответ с JWT после подтверждения email."""
-    access_token: str
+    access_token: str | None = None
     token_type: str = "bearer"
     user: UserOut
+    requires_2fa: bool = False
+    challenge_token: str | None = None
 
 
 class ResendCodeRequest(BaseModel):

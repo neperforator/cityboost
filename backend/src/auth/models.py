@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-
 from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,9 +47,15 @@ class User(Base):
         Boolean, default=False, nullable=False,
     )
     verification_code: Mapped[str | None] = mapped_column(
-        String(6), nullable=True,
+        String(255), nullable=True,
     )
     verification_code_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    verification_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False,
+    )
+    verification_last_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
     )
     reset_token: Mapped[str | None] = mapped_column(
@@ -63,6 +68,25 @@ class User(Base):
         String(255), nullable=True,
     )
     refresh_token_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    # Версия токенов: увеличивается при logout/смене пароля/бане,
+    # чтобы немедленно инвалидировать выданные access/refresh токены.
+    token_version: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False,
+    )
+
+    # --- Двухфакторная аутентификация администраторов (код на email) ---
+    two_factor_code_hash: Mapped[str | None] = mapped_column(
+        String(255), nullable=True,
+    )
+    two_factor_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    two_factor_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False,
+    )
+    two_factor_last_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
     )
 

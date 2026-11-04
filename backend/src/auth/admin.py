@@ -88,6 +88,8 @@ async def admin_change_user_role(
         )
 
     user.role = new_role
+    # Смена роли должна немедленно инвалидировать выданные токены.
+    AuthService.revoke_sessions(user)
     await db.flush()
     await db.refresh(user)
 
@@ -133,6 +135,8 @@ async def admin_ban_user(
         )
 
     user.is_banned = True
+    # Бан немедленно аннулирует refresh-сессию и access-токены (token_version).
+    AuthService.revoke_sessions(user)
     await db.flush()
     await db.refresh(user)
 

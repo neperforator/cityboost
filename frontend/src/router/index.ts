@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 interface RouteMeta {
@@ -7,7 +7,7 @@ interface RouteMeta {
   guest?: boolean
 }
 
-const routes: Array<{ path: string; name?: string; component: () => Promise<unknown>; meta?: RouteMeta }> = [
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     redirect: '/dashboard',

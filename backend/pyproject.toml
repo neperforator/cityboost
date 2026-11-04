@@ -33,6 +33,7 @@ ignore = [
     "N806",     # variable in function should be lowercase
     "N815",     # class attribute mixed case (for SQLAlchemy columns)
     "SIM115",   # open-file context handler
+    "B008",     # Depends()/Query()/File() в аргументах — стандартный паттерн FastAPI
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -18,8 +18,19 @@ export interface User {
 // ---- Auth ----
 
 export interface LoginResponse {
+  access_token?: string
+  token_type: string
+  requires_2fa?: boolean
+  challenge_token?: string
+}
+
+export interface TokenResponse {
   access_token: string
   token_type: string
+}
+
+export interface Admin2FAResendResponse {
+  message: string
 }
 
 export interface VerifyCodePayload {
@@ -28,9 +39,11 @@ export interface VerifyCodePayload {
 }
 
 export interface VerifyCodeResponse {
-  access_token: string
+  access_token?: string
   token_type: string
   user: User
+  requires_2fa?: boolean
+  challenge_token?: string
 }
 
 export interface UserUpdatePayload {

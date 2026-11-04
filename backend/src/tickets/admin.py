@@ -7,7 +7,7 @@ Admin API-роуты для управления заявками.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -29,7 +29,7 @@ from src.tickets.schemas import (
     TicketStats,
     TicketStatusChangeRequest,
 )
-from src.tickets.service import _status_label, TicketService
+from src.tickets.service import TicketService, _status_label
 
 admin_router = APIRouter(
     prefix="/api/v1/admin/tickets",
@@ -46,8 +46,8 @@ admin_router = APIRouter(
 )
 async def admin_list_tickets(
     status: TicketStatus | None = Query(None, description="Фильтр по статусу"),
-    date_from: str | None = Query(None, description="Начальная дата (ISO 8601)"),
-    date_to: str | None = Query(None, description="Конечная дата (ISO 8601)"),
+    date_from: datetime | None = Query(None, description="Начальная дата (ISO 8601)"),
+    date_to: datetime | None = Query(None, description="Конечная дата (ISO 8601)"),
     q: str | None = Query(
         None,
         min_length=1,
@@ -70,7 +70,7 @@ async def admin_list_tickets(
     """Получить список всех заявок с фильтрацией, поиском и пагинацией."""
     service = TicketService(db)
     overdue_before = (
-        datetime.now(timezone.utc) - timedelta(days=OVERDUE_DAYS)
+        datetime.now(UTC) - timedelta(days=OVERDUE_DAYS)
         if overdue
         else None
     )
@@ -170,7 +170,7 @@ async def admin_change_status(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
-        )
+        ) from None
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
 
@@ -234,7 +234,7 @@ async def admin_add_comment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
-        )
+        ) from None
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
     return TicketCommentOut(

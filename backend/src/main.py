@@ -9,8 +9,10 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.auth.admin import admin_user_router
 from src.auth.router import auth_router
@@ -29,23 +31,9 @@ from src.tickets.admin_dashboard import admin_dashboard_router
 from src.tickets.router import tickets_router
 
 # ---------------------------------------------------------------------------
-# Sentry (только в production)
+# Настройка логирования (до Sentry, чтобы logger уже существовал)
 # ---------------------------------------------------------------------------
 
-if not settings.DEBUG and settings.SENTRY_DSN:
-    import sentry_sdk
-
-    sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
-        environment="production",
-        traces_sample_rate=0.1,
-        profiles_sample_rate=0.1,
-    )
-    logger.info("Sentry initialized (production mode)")
-
-# ---------------------------------------------------------------------------
-# Настройка логирования
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -53,6 +41,50 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("cityboost")
+
+# ---------------------------------------------------------------------------
+# Fail-fast проверки production-конфигурации
+# ---------------------------------------------------------------------------
+
+_DEFAULT_JWT_SECRET = "change-this-to-a-very-long-random-secret-key"
+
+if not settings.DEBUG:
+    if settings.JWT_SECRET_KEY == _DEFAULT_JWT_SECRET or len(settings.JWT_SECRET_KEY) < 32:
+        raise RuntimeError(
+            "JWT_SECRET_KEY не настроен: задайте случайный секрет длиной не менее 32 символов",
+        )
+    if "*" in settings.cors_origins:
+        raise RuntimeError(
+            "CORS_ORIGINS не может содержать '*' в production: укажите явные Origin'ы",
+        )
+
+# ---------------------------------------------------------------------------
+# Sentry (только в production)
+# ---------------------------------------------------------------------------
+
+if not settings.DEBUG and settings.SENTRY_DSN:
+    import sentry_sdk
+
+    def _scrub_event(event, hint):  # noqa: ANN001, ANN201
+        """Удалить потенциальные секреты перед отправкой в Sentry."""
+        request = event.get("request") or {}
+        headers = request.get("headers") or {}
+        for name in ("authorization", "cookie", "set-cookie", "x-api-key"):
+            if name in headers:
+                headers[name] = "[Filtered]"
+        if request.get("data") is not None:
+            request["data"] = "[Filtered]"
+        return event
+
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment="production",
+        traces_sample_rate=0.1,
+        profiles_sample_rate=0.1,
+        send_default_pii=False,
+        before_send=_scrub_event,
+    )
+    logger.info("Sentry initialized (production mode)")
 
 # ---------------------------------------------------------------------------
 # Создание FastAPI приложения
@@ -72,18 +104,11 @@ app.state.debug = settings.DEBUG
 # CORS
 # ---------------------------------------------------------------------------
 
-origins = (
-    ["*"]
-    if settings.CORS_ORIGINS == "*"
-    else [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+origins = settings.cors_origins
+allow_credentials = True
+if "*" in origins:
+    # Браузер не разрешает credentials вместе с wildcard.
+    allow_credentials = False
 
 # ---------------------------------------------------------------------------
 # Security headers
@@ -103,17 +128,24 @@ app.add_middleware(RateLimitMiddleware)
 
 app.add_middleware(RequestLoggingMiddleware)
 
+# CORS добавляем последним: Starlette выполняет middleware в обратном порядке,
+# поэтому CORS станет внешним и добавит заголовки даже к 429/500 от других
+# middleware.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=allow_credentials,
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+)
+
 # ---------------------------------------------------------------------------
 # Обработчики исключений
 # ---------------------------------------------------------------------------
 
 app.add_exception_handler(Exception, unhandled_exception_handler)  # type: ignore[arg-type]
 
-# Импортируем и регистрируем стандартные обработчики
-from starlette.exceptions import HTTPException as StarletteHTTPException
-
-from fastapi.exceptions import RequestValidationError
-
+# Регистрируем стандартные обработчики
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
 

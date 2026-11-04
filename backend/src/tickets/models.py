@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-
 from enum import Enum as PyEnum
 
 from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
@@ -64,9 +63,11 @@ class Ticket(Base):
         "User", back_populates="assigned_tickets",
         foreign_keys=[assigned_to],
     )
-    files = relationship("TicketFile", back_populates="ticket", lazy="selectin", cascade="all, delete-orphan")
-    history = relationship("TicketHistory", back_populates="ticket", lazy="selectin", cascade="all, delete-orphan")
-    comments = relationship("TicketComment", back_populates="ticket", lazy="selectin", cascade="all, delete-orphan")
+    # Связи загружаются только явно через selectinload, чтобы списки заявок
+    # не тянули все файлы/комментарии/историю.
+    files = relationship("TicketFile", back_populates="ticket", lazy="raise", cascade="all, delete-orphan")
+    history = relationship("TicketHistory", back_populates="ticket", lazy="raise", cascade="all, delete-orphan")
+    comments = relationship("TicketComment", back_populates="ticket", lazy="raise", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Ticket {self.id} [{self.status}] {self.title}>"
