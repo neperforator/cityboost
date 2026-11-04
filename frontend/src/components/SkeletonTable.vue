@@ -6,19 +6,19 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 animate-pulse">
+  <div class="overflow-hidden">
     <table class="w-full">
-      <thead class="bg-gray-50 dark:bg-gray-800/50">
+      <thead class="border-b-2 border-line dark:border-line-dark">
         <tr>
           <th v-for="c in columns" :key="c" class="px-4 py-3">
-            <div class="h-3 skeleton w-16" />
+            <div class="skeleton h-3 w-16" />
           </th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="r in rows" :key="r" class="border-t border-gray-100 dark:border-gray-700">
+        <tr v-for="r in rows" :key="r" class="border-b border-line last:border-b-0 dark:border-line-dark">
           <td v-for="c in columns" :key="c" class="px-4 py-4">
-            <div class="h-3 skeleton" :style="{ width: (40 + (c * r * 13) % 40) + '%' }" />
+            <div class="skeleton h-3" :style="{ width: (40 + (c * r * 13) % 40) + '%' }" />
           </td>
         </tr>
       </tbody>

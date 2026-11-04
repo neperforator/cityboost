@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 import Pagination from '@/components/Pagination.vue'
 
-import { UsersIcon, MagnifyingGlassIcon, ShieldCheckIcon, NoSymbolIcon, CheckBadgeIcon, UserCircleIcon, CalendarDaysIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
+import { UsersIcon, MagnifyingGlassIcon, ShieldCheckIcon, NoSymbolIcon, CheckBadgeIcon, UserCircleIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
 
 const PAGE_SIZE = 20
 
@@ -21,11 +21,8 @@ const searchQuery = ref('')
 const updating = ref<string | null>(null)
 const banning = ref<string | null>(null)
 
-// Stats
 const stats = ref({ total: 0, admins: 0, users: 0, banned: 0 })
-const statsLoading = ref(true)
 
-// Filters
 const filterRole = ref('')
 const filterBanned = ref<boolean | undefined>(undefined)
 
@@ -33,26 +30,23 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
-const statCards = computed(() => [
-  { key: 'all', label: 'Все', count: stats.value.total, icon: UsersIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500', role: '', banned: undefined, bg: 'bg-primary-50 dark:bg-primary-900/30' },
-  { key: 'admins', label: 'Администраторы', count: stats.value.admins, icon: ShieldCheckIcon, color: 'text-primary-600 dark:text-primary-400', ring: 'ring-primary-500', role: 'admin', banned: undefined, bg: 'bg-primary-50 dark:bg-primary-900/30' },
-  { key: 'users', label: 'Пользователи', count: stats.value.users, icon: UserCircleIcon, color: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-500', role: 'user', banned: undefined, bg: 'bg-blue-50 dark:bg-blue-900/30' },
-  { key: 'banned', label: 'Заблокированы', count: stats.value.banned, icon: NoSymbolIcon, color: 'text-red-600 dark:text-red-400', ring: 'ring-red-500', role: '', banned: true, bg: 'bg-red-50 dark:bg-red-900/30' },
+const filters = computed(() => [
+  { key: 'all', label: 'Все', count: stats.value.total, role: '', banned: undefined as boolean | undefined },
+  { key: 'admins', label: 'Администраторы', count: stats.value.admins, role: 'admin', banned: undefined as boolean | undefined },
+  { key: 'users', label: 'Пользователи', count: stats.value.users, role: 'user', banned: undefined as boolean | undefined },
+  { key: 'banned', label: 'Заблокированы', count: stats.value.banned, role: '', banned: true },
 ])
 
 function isActive(key: string) {
-  const s = statCards.value.find(c => c.key === key)!
+  const s = filters.value.find(c => c.key === key)!
   return filterRole.value === s.role && filterBanned.value === s.banned
 }
 
 async function loadStats() {
-  statsLoading.value = true
   try {
     stats.value = await userAPI.getStats()
   } catch {
     // fallback
-  } finally {
-    statsLoading.value = false
   }
 }
 
@@ -135,133 +129,123 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-    <!-- Page header -->
-    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-      <div>
-        <h1 class="page-title flex items-center gap-2">
-          <UsersIcon class="w-7 h-7 text-primary-600 dark:text-primary-400" />
-          Управление пользователями
-        </h1>
-      </div>
-      <div class="relative w-full sm:w-72">
-        <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input v-model="searchQuery" @input="onSearchInput" type="text" class="form-input pl-9" placeholder="Поиск по имени, email..." />
-      </div>
-    </div>
-
-    <!-- Stats / Filters -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      <button
-        v-for="s in statCards"
-        :key="s.key"
-        @click="setFilter(s.role, s.banned)"
-        class="stat-card hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2"
-        :class="isActive(s.key) ? `ring-2 ${s.ring}` : ''"
-      >
-        <div class="stat-icon" :class="s.bg">
-          <component :is="s.icon" class="w-5 h-5" :class="s.color" />
-        </div>
+  <div class="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-10">
+    <header class="border-b-2 border-line pb-7 dark:border-line-dark">
+      <p class="page-kicker">Администрирование</p>
+      <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ s.count }}</p>
-          <p class="stat-label">{{ s.label }}</p>
+          <h1 class="font-display text-3xl font-semibold tracking-tight text-ink dark:text-ink-dark">Пользователи</h1>
+          <p class="mt-2 text-sm text-ink-soft dark:text-ink-dark-soft">Роли, доступ и блокировки аккаунтов.</p>
         </div>
-      </button>
+        <div class="relative w-full sm:w-72">
+          <MagnifyingGlassIcon class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft dark:text-ink-dark-soft" />
+          <input v-model="searchQuery" @input="onSearchInput" type="text" class="form-input pl-9" placeholder="Поиск по имени, email..." />
+        </div>
+      </div>
+    </header>
+
+    <div class="mt-6 overflow-x-auto scrollbar-none">
+      <div class="flex min-w-max items-stretch border-2 border-line dark:border-line-dark">
+        <button
+          v-for="f in filters"
+          :key="f.key"
+          @click="setFilter(f.role, f.banned)"
+          class="flex items-center gap-2 border-r-2 border-line px-4 py-3 text-sm font-medium transition-colors last:border-r-0 dark:border-line-dark"
+          :class="isActive(f.key)
+            ? 'bg-primary-500 text-white'
+            : 'bg-surface text-ink-soft hover:bg-surface-muted dark:bg-surface-dark dark:text-ink-dark-soft dark:hover:bg-surface-dark-muted'"
+        >
+          {{ f.label }}
+          <span class="text-xs font-semibold tabular-nums" :class="isActive(f.key) ? 'text-primary-100' : 'text-ink-soft dark:text-ink-dark-soft'">{{ f.count }}</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Content with transition -->
     <Transition name="page" mode="out-in">
-      <!-- Loading skeleton -->
-      <div v-if="loading" key="loading" class="card overflow-hidden">
+      <div v-if="loading" key="loading" class="panel mt-5 overflow-hidden">
         <SkeletonTable :rows="7" :columns="5" />
       </div>
 
-      <!-- Empty state -->
-      <div v-else-if="users.length === 0" key="empty" class="card p-12 text-center">
-        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-          <UsersIcon class="w-8 h-8 text-gray-400" />
-        </div>
-        <p class="text-gray-500 dark:text-gray-400">Пользователи не найдены</p>
+      <div v-else-if="users.length === 0" key="empty" class="panel mt-5 p-10 text-center">
+        <UsersIcon class="mx-auto h-8 w-8 text-ink-soft dark:text-ink-dark-soft" />
+        <p class="mt-3 text-sm text-ink-soft dark:text-ink-dark-soft">Пользователи не найдены</p>
       </div>
 
-      <!-- Table -->
-      <div v-else key="table">
-        <div class="card overflow-hidden">
+      <div v-else key="table" class="mt-5">
+        <div class="panel overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
-                <tr class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                  <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Пользователь</th>
-                  <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Email</th>
-                  <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Роль</th>
-                  <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Дата регистрации</th>
-                  <th class="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Действия</th>
+                <tr class="border-b-2 border-line bg-surface-muted dark:border-line-dark dark:bg-surface-dark-muted">
+                  <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-ink-dark-soft">Пользователь</th>
+                  <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-ink-dark-soft">Email</th>
+                  <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-ink-dark-soft">Роль</th>
+                  <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-ink-dark-soft">Регистрация</th>
+                  <th class="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-ink-dark-soft">Действия</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                <tr v-for="u in users" :key="u.id" class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                  <td class="px-4 py-3">
+              <tbody>
+                <tr v-for="u in users" :key="u.id" class="border-b-2 border-line transition-colors last:border-b-0 hover:bg-surface-muted dark:border-line-dark dark:hover:bg-surface-dark-muted">
+                  <td class="px-4 py-3.5">
                     <div class="flex items-center gap-3">
-                      <div class="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center text-xs font-bold text-primary-600 dark:text-primary-400 shrink-0">
+                      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-primary-500 text-[10px] font-bold text-white">
                         {{ u.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) }}
                       </div>
-                      <div>
-                        <p class="font-medium text-gray-900 dark:text-white">{{ u.name }}</p>
-                      </div>
+                      <p class="font-medium text-ink dark:text-ink-dark">{{ u.name }}</p>
                     </div>
                   </td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-                      <EnvelopeIcon class="w-3.5 h-3.5 shrink-0" />
+                  <td class="px-4 py-3.5">
+                    <div class="flex items-center gap-1.5 text-ink-soft dark:text-ink-dark-soft">
+                      <EnvelopeIcon class="h-3.5 w-3.5 shrink-0" />
                       {{ u.email }}
                     </div>
                   </td>
-                  <td class="px-4 py-3">
+                  <td class="px-4 py-3.5">
                     <div class="flex flex-wrap items-center gap-1.5">
-                      <span v-if="u.role === 'admin'" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
-                        <ShieldCheckIcon class="w-3.5 h-3.5" />
+                      <span v-if="u.role === 'admin'" class="inline-flex items-center gap-1 border border-primary-300 px-2 py-0.5 text-[10px] font-semibold text-primary-700 dark:border-primary-700 dark:text-primary-300">
+                        <ShieldCheckIcon class="h-3 w-3" />
                         Администратор
                       </span>
-                      <span v-else class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-700/50 dark:text-gray-400">
-                        <UserCircleIcon class="w-3.5 h-3.5" />
+                      <span v-else class="inline-flex items-center gap-1 border border-line px-2 py-0.5 text-[10px] font-semibold text-ink-soft dark:border-line-dark dark:text-ink-dark-soft">
+                        <UserCircleIcon class="h-3 w-3" />
                         Пользователь
                       </span>
-                      <span v-if="u.is_banned" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        <NoSymbolIcon class="w-3.5 h-3.5" />
+                      <span v-if="u.is_banned" class="inline-flex items-center gap-1 border border-red-300 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:border-red-700 dark:text-red-400">
+                        <NoSymbolIcon class="h-3 w-3" />
                         Заблокирован
                       </span>
                     </div>
                   </td>
-                  <td class="px-4 py-3 text-xs text-gray-500">{{ formatDate(u.created_at) }}</td>
-                  <td class="px-4 py-3 text-right">
+                  <td class="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft dark:text-ink-dark-soft">{{ formatDate(u.created_at) }}</td>
+                  <td class="px-4 py-3.5 text-right">
                     <div class="flex flex-wrap items-center justify-end gap-1.5">
                       <button
                         @click="toggleRole(u)"
                         :disabled="updating === u.id"
-                        class="btn-sm text-xs whitespace-nowrap"
+                        class="btn-sm whitespace-nowrap text-xs"
                         :class="u.role === 'admin' ? 'btn-secondary' : 'btn-primary'"
                       >
-                        <span v-if="updating === u.id" class="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full mr-1"></span>
+                        <span v-if="updating === u.id" class="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
                         {{ u.role === 'admin' ? 'Снять админа' : 'Сделать админом' }}
                       </button>
                       <button
                         v-if="u.id !== auth.user?.id && !u.is_banned"
                         @click="toggleBan(u)"
                         :disabled="banning === u.id"
-                        class="btn-sm text-xs whitespace-nowrap btn-danger"
+                        class="btn-danger btn-sm whitespace-nowrap text-xs"
                       >
-                        <span v-if="banning === u.id" class="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full mr-1"></span>
-                        <NoSymbolIcon class="w-3.5 h-3.5" />
+                        <span v-if="banning === u.id" class="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                        <NoSymbolIcon class="h-3.5 w-3.5" />
                         Заблокировать
                       </button>
                       <button
                         v-else-if="u.id !== auth.user?.id && u.is_banned"
                         @click="toggleBan(u)"
                         :disabled="banning === u.id"
-                        class="btn-sm text-xs whitespace-nowrap btn-secondary"
+                        class="btn-secondary btn-sm whitespace-nowrap text-xs"
                       >
-                        <span v-if="banning === u.id" class="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full mr-1"></span>
-                        <CheckBadgeIcon class="w-3.5 h-3.5" />
+                        <span v-if="banning === u.id" class="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                        <CheckBadgeIcon class="h-3.5 w-3.5" />
                         Разблокировать
                       </button>
                     </div>

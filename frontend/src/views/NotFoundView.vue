@@ -7,24 +7,26 @@ const router = useRouter()
 </script>
 
 <template>
-  <div class="min-h-[60vh] flex items-center justify-center px-4">
-    <div class="text-center max-w-md">
-      <div class="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-6">
-        <span class="text-4xl font-bold text-gray-300 dark:text-gray-600">404</span>
+  <div class="flex min-h-[60vh] items-center justify-center px-4 py-10">
+    <div class="w-full max-w-lg border-2 border-line bg-surface dark:border-line-dark dark:bg-surface-dark">
+      <div class="border-b-2 border-line px-6 py-5 dark:border-line-dark">
+        <p class="font-display text-5xl font-semibold text-ink-soft dark:text-ink-dark-soft">404</p>
+        <h1 class="mt-2 font-display text-2xl font-semibold text-ink dark:text-ink-dark">Страница не найдена</h1>
       </div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Страница не найдена</h1>
-      <p class="text-gray-500 dark:text-gray-400 mb-8">
-        Возможно, она была удалена или вы перешли по неверной ссылке
-      </p>
-      <div class="flex items-center justify-center gap-3">
-        <button @click="router.push('/dashboard')" class="btn-primary">
-          <HomeIcon class="w-5 h-5" />
-          На главную
-        </button>
-        <button @click="router.back()" class="btn-secondary">
-          <ArrowLeftIcon class="w-4 h-4" />
-          Назад
-        </button>
+      <div class="p-6">
+        <p class="text-sm leading-6 text-ink-soft dark:text-ink-dark-soft">
+          Возможно, она была удалена или вы перешли по неверной ссылке.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-2">
+          <button @click="router.push('/dashboard')" class="btn-primary">
+            <HomeIcon class="h-5 w-5" />
+            На главную
+          </button>
+          <button @click="router.back()" class="btn-secondary">
+            <ArrowLeftIcon class="h-4 w-4" />
+            Назад
+          </button>
+        </div>
       </div>
     </div>
   </div>

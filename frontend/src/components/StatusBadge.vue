@@ -9,16 +9,17 @@ const labels: Record<string, string> = { NEW: 'Новая', IN_WORK: 'В раб�
 
 <template>
   <span
-    class="inline-flex items-center rounded-full font-semibold transition-all duration-300 ease-in-out"
+    class="inline-flex items-center font-semibold"
     :class="{
       'badge-new': status === 'NEW',
       'badge-in-work': status === 'IN_WORK',
       'badge-done': status === 'DONE',
       'badge-closed': status === 'CLOSED',
-      'px-2.5 py-0.5 text-xs': size === 'normal',
+      'px-2 py-0.5 text-xs': size === 'normal',
       'px-3 py-1 text-sm': size === 'lg',
     }"
   >
+    <span class="h-1.5 w-1.5 rounded-full bg-current" />
     {{ labels[status] || status }}
   </span>
 </template>

@@ -14,7 +14,6 @@ import L from 'leaflet'
 import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ShieldCheckIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { WrenchScrewdriverIcon } from '@heroicons/vue/24/solid'
 
-// Fix default Leaflet marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -109,9 +108,9 @@ async function changeStatus(status: string) {
     toast.success(`Статус изменён на «${statusLabels[status]}»`)
     pendingClose.value = false
     closeReason.value = ''
-    load(true)  // silent background refresh, no skeleton
+    load(true)
   } catch (err) {
-    ticket.value = prev  // revert locally
+    ticket.value = prev
     toast.error((err as Error).message)
   }
 }
@@ -127,9 +126,9 @@ async function assign() {
   try {
     await adminAPI.assign(ticket.value.id)
     toast.success('Заявка назначена на вас')
-    load(true)  // silent background refresh, no skeleton
+    load(true)
   } catch (err) {
-    ticket.value = prev  // revert locally
+    ticket.value = prev
     toast.error((err as Error).message)
   }
 }
@@ -141,12 +140,11 @@ async function addComment() {
   commentText.value = ''
   try {
     const comment = await adminAPI.addComment(ticket.value.id, text)
-    // Append optimistically without full reload
     if (ticket.value.comments) {
       ticket.value = { ...ticket.value, comments: [...ticket.value.comments, comment] }
     }
     toast.success('Комментарий добавлен')
-    load(true)  // silent background refresh, no skeleton
+    load(true)
   } catch (err) {
     toast.error((err as Error).message)
     commentText.value = text
@@ -182,172 +180,170 @@ function historyActionLabel(h: any): string {
       return `Статус: ${statusLabels[h.old_status] || '—'} → ${statusLabels[h.new_status] || h.new_status}`
   }
 }
-
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+  <div class="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-10">
+    <router-link to="/admin" class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-primary-700 dark:text-ink-dark-soft dark:hover:text-primary-300">
+      <ArrowLeftIcon class="h-4 w-4" />
+      Назад к админ-панели
+    </router-link>
 
-    <div class="mb-6">
-      <router-link to="/admin" class="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors">
-        <ArrowLeftIcon class="w-4 h-4" />
-        Назад к админ-панели
-        <span v-if="ticket" class="text-gray-400 ml-1">/ {{ ticket.title }}</span>
-      </router-link>
-    </div>
+    <SkeletonDetail v-if="loading" class="mt-6" />
 
-    <!-- Loading -->
-    <SkeletonDetail v-if="loading" />
-
-    <!-- Error -->
-    <div v-else-if="error" class="card p-8 text-center">
-      <div class="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
-        <ExclamationTriangleIcon class="w-8 h-8 text-red-500" />
+    <div v-else-if="error" class="panel mt-6 border-l-4 border-l-red-500 p-6">
+      <div class="flex items-start gap-3">
+        <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+        <div>
+          <p class="font-semibold text-ink dark:text-ink-dark">Не удалось загрузить заявку</p>
+          <p class="mt-1 text-sm text-ink-soft dark:text-ink-dark-soft">{{ error }}</p>
+          <router-link to="/admin" class="btn-secondary btn-sm mt-4">Назад</router-link>
+        </div>
       </div>
-      <p class="font-medium text-gray-900 dark:text-white mb-1">Не удалось загрузить заявку</p>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ error }}</p>
-      <router-link to="/admin" class="btn-primary">Назад</router-link>
     </div>
 
     <template v-else-if="ticket">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        <!-- Left: main content -->
-        <div class="lg:col-span-2 space-y-6">
-
-          <!-- Header card -->
-          <div class="card p-6">
-            <div class="flex items-start justify-between gap-4 mb-4">
-              <div class="flex-1 min-w-0">
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">{{ ticket.title }}</h1>
-                <div class="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  <span class="inline-flex items-center gap-1"><CalendarDaysIcon class="w-4 h-4" /> {{ formatDate(ticket.created_at) }}</span>
-                  <span class="text-gray-300 dark:text-gray-600">·</span>
-                  <span class="inline-flex items-center gap-1"><UserCircleIcon class="w-4 h-4" /> {{ ticket.user_name || getUserDisplay(ticket.user_id) }}</span>
-                </div>
-              </div>
-              <StatusBadge :status="ticket.status" size="lg" />
+      <header class="mt-6 border-b-2 border-line pb-7 dark:border-line-dark">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0 flex-1">
+            <p class="page-kicker">Диспетчерская / заявка</p>
+            <h1 class="mt-2 font-display text-2xl font-semibold leading-tight tracking-tight text-ink dark:text-ink-dark sm:text-3xl">
+              {{ ticket.title }}
+            </h1>
+            <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-ink-soft dark:text-ink-dark-soft">
+              <span class="inline-flex items-center gap-1.5">
+                <CalendarDaysIcon class="h-4 w-4" />
+                {{ formatDate(ticket.created_at) }}
+              </span>
+              <span class="inline-flex items-center gap-1.5">
+                <UserCircleIcon class="h-4 w-4" />
+                {{ ticket.user_name || getUserDisplay(ticket.user_id) }}
+              </span>
+              <span v-if="ticket.address" class="inline-flex items-center gap-1.5">
+                <MapPinIcon class="h-4 w-4 shrink-0" />
+                {{ ticket.address }}
+              </span>
             </div>
-            <div v-if="ticket.address" class="flex items-center gap-1.5 mb-4 text-sm text-gray-500">
-              <MapPinIcon class="w-4 h-4 shrink-0" />
-              {{ ticket.address }}
-            </div>
-            <div class="divider" />
-            <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{{ ticket.description }}</p>
-            <div v-if="ticket.status === 'CLOSED' && ticket.close_reason" class="mt-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40 p-4">
-              <h3 class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                <ClipboardDocumentCheckIcon class="w-4 h-4" />
+          </div>
+          <StatusBadge :status="ticket.status" size="lg" />
+        </div>
+      </header>
+
+      <div class="mt-6 grid gap-5 lg:grid-cols-[1fr_300px]">
+        <!-- Main -->
+        <div class="space-y-5">
+          <section class="panel p-5 sm:p-6">
+            <h2 class="text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">Описание</h2>
+            <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-ink dark:text-ink-dark">{{ ticket.description }}</p>
+
+            <div v-if="ticket.status === 'CLOSED' && ticket.close_reason" class="mt-5 border-l-4 border-l-emerald-500 bg-emerald-50 p-4 dark:bg-emerald-900/20">
+              <h3 class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                <ClipboardDocumentCheckIcon class="h-4 w-4" />
                 Причина закрытия
               </h3>
-              <p class="text-sm text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap leading-relaxed">{{ ticket.close_reason }}</p>
+              <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-emerald-900 dark:text-emerald-200">{{ ticket.close_reason }}</p>
             </div>
-          </div>
+          </section>
 
-          <!-- Map -->
-          <div v-if="ticket.latitude" class="card p-4">
-            <h3 class="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-1.5">
-              <MapPinIcon class="w-5 h-5 text-gray-400" />
+          <section v-if="ticket.latitude" class="panel p-4 sm:p-5">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
+              <MapPinIcon class="h-4 w-4" />
               Местоположение
-            </h3>
-            <div id="admin-ticket-map" class="h-56 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-0"></div>
-          </div>
+            </h2>
+            <div id="admin-ticket-map" class="z-0 mt-3 h-56 overflow-hidden border-2 border-line dark:border-line-dark"></div>
+          </section>
 
-          <!-- Files -->
-          <div v-if="ticket.files?.length" class="card p-4">
-            <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
-              <PhotoIcon class="w-5 h-5 text-gray-400" />
+          <section v-if="ticket.files?.length" class="panel p-5 sm:p-6">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
+              <PhotoIcon class="h-4 w-4" />
               Файлы ({{ ticket.files.length }})
-            </h3>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div v-for="(f, fi) in ticket.files" :key="f.id"
+            </h2>
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div
+                v-for="(f, fi) in ticket.files"
+                :key="f.id"
                 @click="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
                 @keydown.enter.prevent="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
                 @keydown.space.prevent="f.mime_type?.startsWith('image/') && openLightbox(ticket.files, fi)"
                 :role="f.mime_type?.startsWith('image/') ? 'button' : undefined"
                 :tabindex="f.mime_type?.startsWith('image/') ? 0 : -1"
                 :aria-label="f.mime_type?.startsWith('image/') ? `Открыть фото ${f.file_path.split('/').pop()}` : undefined"
-                class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                :class="{ 'cursor-pointer': f.mime_type?.startsWith('image/'), 'cursor-default': !f.mime_type?.startsWith('image/') }">
-                <img v-if="f.mime_type?.startsWith('image/')" :src="`/storage/${f.file_path}`" class="w-full h-28 object-cover" loading="lazy" />
-                <div v-else class="h-28 flex items-center justify-center text-gray-400">
-                  <PhotoIcon class="w-8 h-8" />
+                class="overflow-hidden border-2 border-line bg-surface-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:border-line-dark dark:bg-surface-dark-muted"
+                :class="{ 'cursor-pointer hover:border-primary-400': f.mime_type?.startsWith('image/'), 'cursor-default': !f.mime_type?.startsWith('image/') }"
+              >
+                <img v-if="f.mime_type?.startsWith('image/')" :src="`/storage/${f.file_path}`" class="h-28 w-full object-cover" loading="lazy" />
+                <div v-else class="flex h-28 items-center justify-center text-ink-soft dark:text-ink-dark-soft">
+                  <PhotoIcon class="h-8 w-8" />
                 </div>
-                <div class="p-2 text-xs truncate border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">{{ f.file_path.split('/').pop() }}</div>
+                <div class="truncate border-t-2 border-line px-2 py-1.5 text-xs text-ink-soft dark:border-line-dark dark:text-ink-dark-soft">{{ f.file_path.split('/').pop() }}</div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Comments -->
-          <div class="card p-6">
-            <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-1.5">
-              <ChatBubbleLeftRightIcon class="w-5 h-5 text-gray-400" />
+          <section class="panel p-5 sm:p-6">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
+              <ChatBubbleLeftRightIcon class="h-4 w-4" />
               Комментарии ({{ ticket.comments?.length || 0 }})
-            </h3>
+            </h2>
 
-            <div v-if="ticket.comments?.length" class="space-y-3 mb-6 max-h-96 overflow-y-auto pr-1 -mr-1">
-              <div v-for="c in ticket.comments" :key="c.id" class="flex gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                <div class="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center shrink-0">
-                  <UserCircleIcon class="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            <div v-if="ticket.comments?.length" class="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
+              <div v-for="c in ticket.comments" :key="c.id" class="flex gap-3 border-l-2 border-line bg-surface-muted p-4 dark:border-line-dark dark:bg-surface-dark-muted">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-primary-500 text-xs font-bold text-white">
+                  {{ (c.author_name || getUserName(c.author_id))?.slice(0, 1).toUpperCase() }}
                 </div>
-                <div class="flex-1">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ c.author_name || getUserName(c.author_id) }}</span>
-                    <span v-if="c.author_role === 'admin'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
-                      <ShieldCheckIcon class="w-3.5 h-3.5" />
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-semibold text-ink dark:text-ink-dark">{{ c.author_name || getUserName(c.author_id) }}</span>
+                    <span v-if="c.author_role === 'admin'" class="inline-flex items-center gap-1 border border-primary-300 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:border-primary-700 dark:text-primary-300">
+                      <ShieldCheckIcon class="h-3 w-3" />
                       Администратор
                     </span>
-                    <span class="text-xs text-gray-400">{{ formatDate(c.created_at) }}</span>
+                    <span class="text-xs text-ink-soft dark:text-ink-dark-soft">{{ formatDate(c.created_at) }}</span>
                   </div>
-                  <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ c.comment_text }}</p>
+                  <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-ink dark:text-ink-dark">{{ c.comment_text }}</p>
                 </div>
               </div>
             </div>
-            <div v-else class="text-sm text-gray-400 py-4 text-center">Комментариев пока нет</div>
+            <div v-else class="py-6 text-center text-sm text-ink-soft dark:text-ink-dark-soft">Комментариев пока нет</div>
 
-            <div v-if="ticket.status !== 'DONE' && ticket.status !== 'CLOSED'" class="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div v-if="ticket.status !== 'DONE' && ticket.status !== 'CLOSED'" class="mt-5 border-t-2 border-line pt-4 dark:border-line-dark">
               <div class="relative">
-                <textarea v-model="commentText" class="form-textarea text-sm" rows="2" maxlength="2000" placeholder="Добавить комментарий..."></textarea>
-                <span class="absolute bottom-2 right-3 text-xs text-gray-400">{{ commentText.length }}/2000</span>
+                <textarea v-model="commentText" class="form-textarea pb-6 text-sm" rows="2" maxlength="2000" placeholder="Добавить комментарий..."></textarea>
+                <span class="absolute bottom-2 right-3 text-xs text-ink-soft dark:text-ink-dark-soft">{{ commentText.length }}/2000</span>
               </div>
               <button @click="addComment" class="btn-primary btn-sm mt-2" :disabled="commenting || !commentText.trim()">
                 {{ commenting ? 'Отправка...' : 'Отправить комментарий' }}
               </button>
             </div>
-            <div v-else class="border-t border-gray-200 dark:border-gray-700 pt-4" />
-          </div>
+          </section>
         </div>
 
-        <!-- Right: management sidebar -->
-        <div class="space-y-6">
-
-          <!-- Status -->
-          <div class="card p-5">
-            <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
-              <ArrowPathIcon class="w-5 h-5 text-gray-400" />
+        <!-- Sidebar -->
+        <aside class="space-y-5">
+          <section class="panel p-5">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
+              <ArrowPathIcon class="h-4 w-4" />
               Статус
-            </h3>
-            <div class="space-y-2">
+            </h2>
+            <div class="mt-3 space-y-2">
               <button
                 v-for="s in statuses"
                 :key="s"
                 @click="changeStatus(s)"
                 :disabled="ticket.status === s"
-                class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                class="flex w-full items-center gap-2 border-2 px-3 py-2 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 :class="ticket.status === s
-                  ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 cursor-not-allowed'
-                  : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'"
+                  ? 'cursor-not-allowed border-primary-500 bg-primary-500 text-white'
+                  : 'cursor-pointer border-line text-ink hover:border-primary-400 dark:border-line-dark dark:text-ink-dark dark:hover:border-primary-500'"
               >
-                <CheckCircleIcon v-if="ticket.status === s" class="w-4 h-4" />
-                <span v-else class="w-4 h-4" />
+                <CheckCircleIcon v-if="ticket.status === s" class="h-4 w-4" />
+                <span v-else class="h-4 w-4" />
                 {{ statusLabels[s] }}
               </button>
             </div>
 
-            <!-- Close reason prompt -->
-            <div v-if="pendingClose" class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-              <label for="close-reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Причина закрытия заявки
-              </label>
+            <div v-if="pendingClose" class="mt-4 border-t-2 border-line pt-4 dark:border-line-dark">
+              <label for="close-reason" class="form-label">Причина закрытия заявки</label>
               <textarea
                 id="close-reason"
                 v-model="closeReason"
@@ -356,72 +352,67 @@ function historyActionLabel(h: any): string {
                 maxlength="1000"
                 placeholder="Укажите, почему заявка закрывается..."
               ></textarea>
-              <span class="block text-right text-xs text-gray-400 mt-1">{{ closeReason.length }}/1000</span>
-              <div class="flex gap-2 mt-2">
-                <button @click="changeStatus('CLOSED')" class="btn-primary btn-sm flex-1" :disabled="!closeReason.trim()">
-                  Подтвердить закрытие
-                </button>
+              <span class="mt-1 block text-right text-xs text-ink-soft dark:text-ink-dark-soft">{{ closeReason.length }}/1000</span>
+              <div class="mt-2 flex gap-2">
+                <button @click="changeStatus('CLOSED')" class="btn-primary btn-sm flex-1" :disabled="!closeReason.trim()">Подтвердить</button>
                 <button @click="cancelClose" class="btn-secondary btn-sm">Отмена</button>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Assign -->
-          <div class="card p-5">
-            <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
-              <ClipboardDocumentCheckIcon class="w-5 h-5 text-gray-400" />
+          <section class="panel p-5">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
+              <ClipboardDocumentCheckIcon class="h-4 w-4" />
               Назначение
-            </h3>
-            <div v-if="ticket.assigned_to" class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              Исполнитель: <strong class="text-gray-900 dark:text-white">{{ ticket.assigned_to_name || getUserDisplay(ticket.assigned_to) }}</strong>
+            </h2>
+            <div v-if="ticket.assigned_to" class="mt-2 text-sm text-ink-soft dark:text-ink-dark-soft">
+              Исполнитель: <strong class="text-ink dark:text-ink-dark">{{ ticket.assigned_to_name || getUserDisplay(ticket.assigned_to) }}</strong>
             </div>
-            <button @click="assign" :disabled="!!ticket.assigned_to" class="btn-primary w-full text-sm" :class="{ 'opacity-50 cursor-not-allowed': ticket.assigned_to }">
-              <WrenchScrewdriverIcon v-if="!ticket.assigned_to" class="w-4 h-4" />
+            <button @click="assign" :disabled="!!ticket.assigned_to" class="btn-primary mt-3 w-full text-sm disabled:opacity-50">
+              <WrenchScrewdriverIcon v-if="!ticket.assigned_to" class="h-4 w-4" />
               {{ ticket.assigned_to ? 'Назначена' : 'Назначить на себя' }}
             </button>
-          </div>
+          </section>
 
-          <!-- User info -->
-          <div class="card p-5">
-            <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
-              <UserCircleIcon class="w-5 h-5 text-gray-400" />
+          <section class="panel p-5">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
+              <UserCircleIcon class="h-4 w-4" />
               Заявитель
-            </h3>
-            <div class="text-sm space-y-2">
-              <p class="text-gray-700 dark:text-gray-300">{{ ticket.user_name || getUserDisplay(ticket.user_id) }}</p>
-              <p class="text-xs text-gray-400 inline-flex items-center gap-1">
-                <CalendarDaysIcon class="w-3.5 h-3.5" />
+            </h2>
+            <div class="mt-2 space-y-1 text-sm">
+              <p class="text-ink dark:text-ink-dark">{{ ticket.user_name || getUserDisplay(ticket.user_id) }}</p>
+              <p class="inline-flex items-center gap-1 text-xs text-ink-soft dark:text-ink-dark-soft">
+                <CalendarDaysIcon class="h-3.5 w-3.5" />
                 {{ formatDate(ticket.created_at) }}
               </p>
             </div>
-          </div>
+          </section>
 
-          <!-- History -->
-          <div class="card p-5">
-            <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
-              <ClockIcon class="w-5 h-5 text-gray-400" />
+          <section class="panel p-5">
+            <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
+              <ClockIcon class="h-4 w-4" />
               История изменений
-            </h3>
-            <div v-if="history.length === 0" class="text-sm text-gray-400 text-center py-4">История пуста</div>
-            <div v-else class="space-y-3 max-h-80 overflow-y-auto pr-1 -mr-1">
-              <div v-for="h in history" :key="h.id" class="text-xs border-l-2 border-primary-300 dark:border-primary-600 pl-3 py-1.5">
-                <p class="text-gray-400">{{ formatDate(h.created_at) }}</p>
-                <p class="mt-1 flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-                  <component :is="historyActionIcons[h.action] || ClockIcon" class="w-4 h-4 shrink-0 text-primary-500" />
-                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ h.changed_by_name || getUserDisplay(h.changed_by) }}</span>
+            </h2>
+            <div v-if="history.length === 0" class="py-4 text-center text-sm text-ink-soft dark:text-ink-dark-soft">История пуста</div>
+            <div v-else class="mt-3 max-h-80 space-y-3 overflow-y-auto pr-1">
+              <div v-for="h in history" :key="h.id" class="border-l-2 border-primary-300 py-1 pl-3 text-xs dark:border-primary-600">
+                <p class="text-ink-soft dark:text-ink-dark-soft">{{ formatDate(h.created_at) }}</p>
+                <p class="mt-1 flex items-center gap-1.5 text-ink-soft dark:text-ink-dark-soft">
+                  <component :is="historyActionIcons[h.action] || ClockIcon" class="h-4 w-4 shrink-0 text-primary-500" />
+                  <span class="font-medium text-ink dark:text-ink-dark">{{ h.changed_by_name || getUserDisplay(h.changed_by) }}</span>
                   <span>—</span>
-                  <span class="font-semibold text-gray-900 dark:text-white">{{ historyActionLabel(h) }}</span>
+                  <span class="font-semibold text-ink dark:text-ink-dark">{{ historyActionLabel(h) }}</span>
                 </p>
-                <p v-if="h.details" class="mt-1 text-gray-500 dark:text-gray-400">{{ h.details }}</p>
-                <p v-if="h.action === 'STATUS_CHANGED'" class="mt-1 flex items-center gap-1.5 flex-wrap">
-                  <span class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-400">{{ statusLabels[h.old_status] || h.old_status || '—' }}</span>
-                  <span class="text-primary-500 font-bold">→</span>
-                  <span class="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded font-semibold">{{ statusLabels[h.new_status] || h.new_status }}</span>
+                <p v-if="h.details" class="mt-1 text-ink-soft dark:text-ink-dark-soft">{{ h.details }}</p>
+                <p v-if="h.action === 'STATUS_CHANGED'" class="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span class="border border-line px-1.5 py-0.5 text-ink-soft dark:border-line-dark dark:text-ink-dark-soft">{{ statusLabels[h.old_status] || h.old_status || '—' }}</span>
+                  <span class="font-bold text-primary-500">→</span>
+                  <span class="border border-primary-300 px-1.5 py-0.5 font-semibold text-primary-700 dark:border-primary-700 dark:text-primary-300">{{ statusLabels[h.new_status] || h.new_status }}</span>
                 </p>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
     </template>
     <ImageLightbox ref="lightboxRef" />

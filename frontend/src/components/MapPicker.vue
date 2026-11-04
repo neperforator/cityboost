@@ -116,7 +116,7 @@ onUnmounted(() => {
     <!-- Search by address -->
     <div class="flex gap-2">
       <div class="relative flex-1">
-        <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <MagnifyingGlassIcon class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft dark:text-ink-dark-soft" />
         <input
           v-model="address"
           type="text"
@@ -133,7 +133,7 @@ onUnmounted(() => {
     <!-- Map -->
     <div
       ref="mapContainer"
-      class="rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden z-0"
+      class="z-0 overflow-hidden rounded-sm border-2 border-line dark:border-line-dark"
       :style="{ height }"
     ></div>
   </div>

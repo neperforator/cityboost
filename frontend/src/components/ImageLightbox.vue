@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch } from 'vue'
 import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
 
@@ -68,14 +68,14 @@ defineExpose({ open })
         <!-- Close button -->
         <button
           @click="close"
-          aria-label="Закрыть"
-          class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          aria-label="Р—Р°РєСЂС‹С‚СЊ"
+          class="absolute top-4 right-4 z-10 w-10 h-10 rounded-sm bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <XMarkIcon class="w-6 h-6" />
         </button>
 
         <!-- Counter -->
-        <div v-if="images.length > 1" class="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium">
+        <div v-if="images.length > 1" class="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-sm bg-white/10 text-white text-sm font-medium">
           {{ currentIndex + 1 }} / {{ images.length }}
         </div>
 
@@ -83,8 +83,8 @@ defineExpose({ open })
         <button
           v-if="images.length > 1 && currentIndex > 0"
           @click="prev"
-          aria-label="Предыдущее фото"
-          class="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          aria-label="РџСЂРµРґС‹РґСѓС‰РµРµ С„РѕС‚Рѕ"
+          class="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-sm bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <ChevronLeftIcon class="w-7 h-7" />
         </button>
@@ -93,8 +93,8 @@ defineExpose({ open })
         <button
           v-if="images.length > 1 && currentIndex < images.length - 1"
           @click="next"
-          aria-label="Следующее фото"
-          class="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          aria-label="РЎР»РµРґСѓСЋС‰РµРµ С„РѕС‚Рѕ"
+          class="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-sm bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <ChevronRightIcon class="w-7 h-7" />
         </button>
@@ -105,7 +105,7 @@ defineExpose({ open })
             <img
               :key="currentIndex"
               :src="images[currentIndex]"
-              class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+              class="max-w-full max-h-[85vh] object-contain rounded-sm select-none"
               :class="{ 'opacity-0': !loaded }"
               @load="loaded = true"
               @click.stop
@@ -136,3 +136,4 @@ defineExpose({ open })
   opacity: 0;
 }
 </style>
+

@@ -3,8 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { authAPI } from '@/api'
 import { useToast } from '@/composables/useToast'
-import { TicketIcon } from '@heroicons/vue/24/solid'
-import { LockClosedIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import AuthShell from '@/components/AuthShell.vue'
+import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const route = useRoute()
@@ -47,79 +47,62 @@ async function handleReset() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 px-4">
-    <div class="w-full max-w-md">
-      <!-- Logo -->
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-lg mb-4">
-          <TicketIcon class="w-7 h-7 text-white" />
-        </div>
-        <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Новый пароль</h1>
-        <p class="text-gray-500 dark:text-gray-400 mt-1.5">Придумайте новый пароль для входа</p>
+  <AuthShell
+    title="Новый пароль"
+    subtitle="Придумайте пароль для входа в аккаунт."
+  >
+    <div v-if="success">
+      <div class="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+        <CheckCircleIcon class="h-5 w-5" />
+        Пароль изменён
       </div>
-
-      <div class="card p-8">
-        <!-- Success -->
-        <div v-if="success" class="text-center py-4">
-          <div class="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
-            <CheckCircleIcon class="w-8 h-8 text-emerald-500" />
-          </div>
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Пароль изменён!</h3>
-          <p class="text-sm text-gray-500 mt-2">Перенаправляем на страницу входа...</p>
-        </div>
-
-        <!-- Invalid token -->
-        <div v-else-if="invalidToken" class="text-center py-4">
-          <div class="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
-            <ExclamationTriangleIcon class="w-8 h-8 text-red-500" />
-          </div>
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Недействительная ссылка</h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ error }}</p>
-          <router-link to="/forgot-password" class="btn-primary">Запросить новый сброс</router-link>
-        </div>
-
-        <!-- Form -->
-        <form v-else @submit.prevent="handleReset" class="space-y-5">
-          <div class="form-input-group">
-            <label class="form-label">Новый пароль</label>
-            <div class="relative">
-              <LockClosedIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                v-model="password"
-                type="password"
-                class="form-input pl-10"
-                placeholder="Минимум 8 символов"
-                autocomplete="new-password"
-                required
-                minlength="8"
-              />
-            </div>
-          </div>
-          <div class="form-input-group">
-            <label class="form-label">Подтвердите пароль</label>
-            <div class="relative">
-              <LockClosedIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                v-model="passwordConfirm"
-                type="password"
-                class="form-input pl-10"
-                placeholder="Повторите пароль"
-                autocomplete="new-password"
-                required
-              />
-            </div>
-          </div>
-
-          <div v-if="error" class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg px-4 py-2.5">
-            {{ error }}
-          </div>
-
-          <button type="submit" class="btn-accent w-full text-base py-3" :disabled="loading">
-            <svg v-if="loading" class="animate-spin h-5 w-5 mx-auto" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            {{ loading ? 'Сброс...' : 'Сбросить пароль' }}
-          </button>
-        </form>
-      </div>
+      <p class="mt-3 text-sm text-ink-soft dark:text-ink-dark-soft">Перенаправляем на страницу входа...</p>
     </div>
-  </div>
+
+    <div v-else-if="invalidToken">
+      <div class="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-400">
+        <ExclamationTriangleIcon class="h-5 w-5" />
+        Недействительная ссылка
+      </div>
+      <p class="mt-3 text-sm text-ink-soft dark:text-ink-dark-soft">{{ error }}</p>
+      <router-link to="/forgot-password" class="btn-accent mt-6 w-full">Запросить новый сброс</router-link>
+    </div>
+
+    <form v-else @submit.prevent="handleReset" class="space-y-4">
+      <div class="form-input-group">
+        <label for="reset-password" class="form-label">Новый пароль</label>
+        <input
+          id="reset-password"
+          v-model="password"
+          type="password"
+          class="form-input"
+          placeholder="Минимум 8 символов"
+          autocomplete="new-password"
+          required
+          minlength="8"
+        />
+      </div>
+
+      <div class="form-input-group">
+        <label for="reset-confirm" class="form-label">Подтвердите пароль</label>
+        <input
+          id="reset-confirm"
+          v-model="passwordConfirm"
+          type="password"
+          class="form-input"
+          placeholder="Повторите пароль"
+          autocomplete="new-password"
+          required
+        />
+      </div>
+
+      <div v-if="error" class="rounded-sm border-2 border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+        {{ error }}
+      </div>
+
+      <button type="submit" class="btn-accent w-full" :disabled="loading">
+        {{ loading ? 'Сброс...' : 'Сбросить пароль' }}
+      </button>
+    </form>
+  </AuthShell>
 </template>

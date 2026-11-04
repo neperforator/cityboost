@@ -8,79 +8,89 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Civic Navy — professional, trustworthy palette
-        // Distinctive from generic Tailwind indigo
+        // Municipal pine — the service-line colour
         primary: {
-          50: '#EBF4FF',
-          100: '#D6E8FF',
-          200: '#A8CCF5',
-          300: '#7AACE8',
-          400: '#4D8EDB',
-          500: '#2B6CB0',
-          600: '#1E4D8C',
-          700: '#153A6B',
-          800: '#0F2B50',
-          900: '#091B35',
+          50: '#E8F1ED',
+          100: '#C9E0D7',
+          200: '#9CC7B8',
+          300: '#6BA893',
+          400: '#3D8871',
+          500: '#0E5A4A',
+          600: '#0B4B3E',
+          700: '#093D33',
+          800: '#072F27',
+          900: '#05211C',
         },
-        // Emerald accent for CTAs and highlights ("service green")
+        // Safety orange — used only for action and attention
         accent: {
-          50: '#ECFDF5',
-          100: '#D1FAE5',
-          200: '#A7F3D0',
-          300: '#6EE7B7',
-          400: '#34D399',
-          500: '#10B981',
-          600: '#059669',
-          700: '#047857',
-          800: '#065F46',
-          900: '#064E3B',
+          50: '#FDECE6',
+          100: '#FAD3C5',
+          200: '#F4A88F',
+          300: '#EE7D5B',
+          400: '#E95F39',
+          500: '#E4572E',
+          600: '#C4431F',
+          700: '#A03519',
+          800: '#7C2913',
+          900: '#5C1E0E',
         },
-        // Surface colors for cards, modals, etc.
+        // Map blue — for location and secondary information
+        map: {
+          50: '#EAF2F5',
+          100: '#D2E2E9',
+          200: '#A9C6D3',
+          300: '#7FA9BB',
+          400: '#4F839A',
+          500: '#2E6F8E',
+          600: '#245A74',
+          700: '#1C475C',
+          800: '#153645',
+          900: '#0F2732',
+        },
+        canvas: {
+          DEFAULT: '#EEF0EC',
+          dark: '#101614',
+        },
         surface: {
           DEFAULT: '#FFFFFF',
-          secondary: '#F8FAFC',
-          muted: '#F1F5F9',
-          'dark': '#1A202C',
-          'dark-secondary': '#1E293B',
-          'dark-muted': '#0F172A',
+          muted: '#F6F7F4',
+          dark: '#161D1A',
+          'dark-muted': '#1D2521',
         },
-        // Page canvas — cool, light blue-gray (dark: near-black navy)
-        canvas: {
-          DEFAULT: '#F6F8FB',
-          dark: '#0B1220',
+        ink: {
+          DEFAULT: '#16201C',
+          soft: '#4A554F',
+          dark: '#E8ECE6',
+          'dark-soft': '#A7B2AB',
+        },
+        line: {
+          DEFAULT: '#D7DCD5',
+          dark: '#2A342F',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Manrope', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Onest', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['Unbounded', 'Onest', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        sm: '2px',
+        DEFAULT: '4px',
+        md: '6px',
+        lg: '8px',
+        xl: '12px',
       },
       boxShadow: {
-        'card': '0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.08)',
-        'card-hover': '0 8px 24px -6px rgb(16 24 40 / 0.12), 0 2px 6px -2px rgb(16 24 40 / 0.06)',
-        'dropdown': '0 8px 16px -4px rgb(16 24 40 / 0.1), 0 2px 4px -2px rgb(16 24 40 / 0.05)',
-        'modal': '0 24px 48px -12px rgb(16 24 40 / 0.18), 0 8px 16px -8px rgb(16 24 40 / 0.1)',
-        'sidebar': '4px 0 6px -1px rgb(0 0 0 / 0.05)',
-        'nav': '0 1px 3px 0 rgb(0 0 0 / 0.04)',
-        'emerald-glow': '0 8px 20px -6px rgb(16 185 129 / 0.4)',
-      },
-      animation: {
-        'fade-in': 'fadeIn 0.2s ease-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'slide-in-right': 'slideInRight 0.3s ease-out',
+        panel: '4px 4px 0 0 rgb(22 32 28 / 0.08)',
+        none: 'none',
       },
       keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0', transform: 'translateY(4px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
+        lineIn: {
+          '0%': { transform: 'scaleX(0)' },
+          '100%': { transform: 'scaleX(1)' },
         },
-        slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(12px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        slideInRight: {
-          '0%': { opacity: '0', transform: 'translateX(12px)' },
-          '100%': { opacity: '1', transform: 'translateX(0)' },
-        },
+      },
+      animation: {
+        'line-in': 'lineIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)',
       },
     },
   },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
@@ -9,29 +9,20 @@ import ToastContainer from '@/components/ToastContainer.vue'
 const route = useRoute()
 const auth = useAuthStore()
 
-// Theme: auto-detect system preference, override with explicit user choice
 const storedTheme = localStorage.getItem('theme')
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)')
 const userChose = storedTheme === 'dark' || storedTheme === 'light'
 
-const dark = ref(
-  userChose ? storedTheme === 'dark' : prefersDark.matches
-)
+const dark = ref(userChose ? storedTheme === 'dark' : prefersDark.matches)
 
 const applyTheme = () => {
-  if (dark.value) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
+  if (dark.value) document.documentElement.classList.add('dark')
+  else document.documentElement.classList.remove('dark')
 }
 applyTheme()
 
-// Listen to system theme changes unless user has explicitly chosen
 const onSystemThemeChange = (e: MediaQueryListEvent) => {
-  if (!userChose) {
-    dark.value = e.matches
-  }
+  if (!userChose) dark.value = e.matches
 }
 prefersDark.addEventListener('change', onSystemThemeChange)
 
@@ -46,9 +37,7 @@ const noHeaderRoutes = ['/login', '/register', '/forgot-password', '/reset-passw
 const showHeader = () => !noHeaderRoutes.includes(route.path)
 
 onMounted(() => {
-  if (auth.token && !auth.user) {
-    auth.fetchMe()
-  }
+  if (auth.token && !auth.user) auth.fetchMe()
 })
 
 onUnmounted(() => {
@@ -57,16 +46,18 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="min-h-screen bg-canvas dark:bg-canvas-dark md:flex">
     <AppHeader v-if="showHeader()" :dark="dark" @toggle-dark="toggleDark" />
-    <main class="flex-1">
-      <router-view v-slot="{ Component }">
-        <Transition name="page" mode="out-in">
-          <component :is="Component" />
-        </Transition>
-      </router-view>
-    </main>
-    <AppFooter v-if="showHeader()" />
+    <div class="flex min-h-screen flex-1 flex-col">
+      <main class="flex-1">
+        <router-view v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" />
+          </Transition>
+        </router-view>
+      </main>
+      <AppFooter v-if="showHeader()" />
+    </div>
     <ToastContainer />
   </div>
 </template>
