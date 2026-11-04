@@ -18,26 +18,6 @@ services:
     networks:
       - cityboost-net
 
-  worker:
-    build: ./backend
-    container_name: cityboost-worker
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - SKIP_MIGRATIONS=true
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    volumes:
-      - ./storage:/app/storage
-      - ./.env:/app/.env
-    command: python -m src.geo.tasks
-    networks:
-      - cityboost-net
-
   db:
     image: postgres:16-alpine
     container_name: cityboost-db

@@ -2,7 +2,7 @@
 Rate limiting middleware на основе Redis.
 
 Простой sliding window счётчик для ключевых эндпоинтов.
-Использует существующий Redis (через arq/redis-py).
+Использует существующий Redis (через redis-py).
 """
 
 from __future__ import annotations
