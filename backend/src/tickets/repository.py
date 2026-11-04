@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+
 from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
@@ -139,8 +141,11 @@ class TicketRepository:
         page: int = 1,
         page_size: int = 20,
         search: str | None = None,
+        assignee_id: uuid.UUID | None = None,
+        unassigned_only: bool = False,
+        overdue_before: datetime | None = None,
     ) -> tuple[list[Ticket], int]:
-        """Фильтрация заявок по статусу, дате и текстовому поиску (для админа)."""
+        """Фильтрация заявок по статусу, дате, поиску, исполнителю (для админа)."""
         query = select(Ticket).options(
             selectinload(Ticket.user),
             selectinload(Ticket.assignee),
@@ -180,6 +185,21 @@ class TicketRepository:
         if status is not None:
             query = query.where(Ticket.status == status)
             count_query = count_query.where(Ticket.status == status)
+        if assignee_id is not None:
+            query = query.where(Ticket.assigned_to == assignee_id)
+            count_query = count_query.where(Ticket.assigned_to == assignee_id)
+        if unassigned_only:
+            query = query.where(Ticket.assigned_to.is_(None))
+            count_query = count_query.where(Ticket.assigned_to.is_(None))
+        if overdue_before is not None:
+            query = query.where(
+                Ticket.status == TicketStatus.IN_WORK,
+                Ticket.created_at < overdue_before,
+            )
+            count_query = count_query.where(
+                Ticket.status == TicketStatus.IN_WORK,
+                Ticket.created_at < overdue_before,
+            )
         if date_from is not None:
             query = query.where(Ticket.created_at >= date_from)
             count_query = count_query.where(Ticket.created_at >= date_from)

@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   Bars3Icon, XMarkIcon, SunIcon, MoonIcon, ClipboardDocumentListIcon,
   UserCircleIcon, ArrowRightOnRectangleIcon, UsersIcon,
-  ClockIcon, PlusIcon, InformationCircleIcon,
+  ClockIcon, PlusIcon, InformationCircleIcon, HomeIcon,
 } from '@heroicons/vue/24/outline'
 
 defineProps({ dark: Boolean })
@@ -23,7 +23,8 @@ const initials = computed(() => {
 const activeRoute = computed(() => router.currentRoute.value.path)
 
 const adminLinks = [
-  { to: '/admin', label: 'Все заявки', icon: ClipboardDocumentListIcon },
+  { to: '/admin', label: 'Кабинет', icon: HomeIcon },
+  { to: '/admin/tickets', label: 'Все заявки', icon: ClipboardDocumentListIcon },
   { to: '/admin/users', label: 'Пользователи', icon: UsersIcon },
   { to: '/admin/audit', label: 'Аудит-лог', icon: ClockIcon },
 ]
@@ -85,7 +86,7 @@ watch(mobileOpen, (val) => {
           :key="link.to"
           :to="link.to"
           class="nav-item"
-          :class="{ 'nav-item-active': activeRoute === link.to || (link.to === '/admin' && activeRoute.startsWith('/admin/tickets')) }"
+          :class="{ 'nav-item-active': activeRoute === link.to || (link.to === '/admin/tickets' && activeRoute.startsWith('/admin/tickets/')) }"
         >
           <component :is="link.icon" class="h-4 w-4" />
           {{ link.label }}
@@ -175,7 +176,7 @@ watch(mobileOpen, (val) => {
                 :key="link.to"
                 @click="go(link.to)"
                 class="nav-item w-full"
-                :class="{ 'nav-item-active': activeRoute === link.to }"
+                :class="{ 'nav-item-active': activeRoute === link.to || (link.to === '/admin/tickets' && activeRoute.startsWith('/admin/tickets/')) }"
               >
                 <component :is="link.icon" class="h-4 w-4" />
                 {{ link.label }}

@@ -25,6 +25,7 @@ from src.common.ratelimit import RateLimitMiddleware
 from src.common.security import SecurityHeadersMiddleware
 from src.config import settings
 from src.tickets.admin import admin_router
+from src.tickets.admin_dashboard import admin_dashboard_router
 from src.tickets.router import tickets_router
 
 # ---------------------------------------------------------------------------
@@ -134,6 +135,7 @@ async def healthcheck() -> JSONResponse:
 app.include_router(auth_router)
 app.include_router(tickets_router)
 app.include_router(admin_router)
+app.include_router(admin_dashboard_router)
 app.include_router(admin_user_router)
 app.include_router(admin_audit_router)
 

@@ -184,9 +184,9 @@ function historyActionLabel(h: any): string {
 
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-10">
-    <router-link to="/admin" class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-primary-700 dark:text-ink-dark-soft dark:hover:text-primary-300">
+    <router-link to="/admin/tickets" class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-primary-700 dark:text-ink-dark-soft dark:hover:text-primary-300">
       <ArrowLeftIcon class="h-4 w-4" />
-      Назад к админ-панели
+      Назад к заявкам
     </router-link>
 
     <SkeletonDetail v-if="loading" class="mt-6" />
@@ -197,7 +197,7 @@ function historyActionLabel(h: any): string {
         <div>
           <p class="font-semibold text-ink dark:text-ink-dark">Не удалось загрузить заявку</p>
           <p class="mt-1 text-sm text-ink-soft dark:text-ink-dark-soft">{{ error }}</p>
-          <router-link to="/admin" class="btn-secondary btn-sm mt-4">Назад</router-link>
+          <router-link to="/admin/tickets" class="btn-secondary btn-sm mt-4">Назад</router-link>
         </div>
       </div>
     </div>

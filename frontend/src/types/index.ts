@@ -97,6 +97,8 @@ export interface TicketFilters {
   page?: number
   page_size?: number
   q?: string
+  assignee?: 'me' | 'unassigned' | 'all'
+  overdue?: boolean
 }
 
 export interface TicketStatusChangePayload {
@@ -118,6 +120,21 @@ export interface AdminActionLog {
   created_at: string
 }
 
+export interface AdminDashboardStats {
+  assigned: {
+    total: number
+    new: number
+    in_work: number
+    done: number
+    closed: number
+  }
+  queue: number
+  overdue: number
+  recent_assigned: Ticket[]
+  queue_tickets: Ticket[]
+  recent_activity: AdminActionLog[]
+}
+
 export interface TicketHistoryEntry {
   id: string
   ticket_id: string
@@ -134,6 +151,7 @@ export interface AuditLogFilters {
   action?: string
   page?: number
   page_size?: number
+  mine?: boolean
 }
 
 // ---- Common ----

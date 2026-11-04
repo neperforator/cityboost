@@ -76,13 +76,14 @@ async def list_audit_logs(
     page_size: int = Query(50, ge=1, le=100, description="Размер страницы"),
     action: str | None = Query(None, description="Фильтр по типу действия"),
     admin_id: uuid.UUID | None = Query(None, description="Фильтр по администратору"),
+    mine: bool = Query(False, description="Показать только действия текущего администратора"),
     target_type: str | None = Query(None, description="Фильтр по типу цели (user/ticket)"),
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_current_user),
+    admin: User = Depends(get_current_user),
 ) -> PaginatedAuditLogs:
     """Получить список записей аудит-лога."""
     items, total = await AdminLogRepository.list(
-        db, page, page_size, action, admin_id, target_type,
+        db, page, page_size, action, admin.id if mine else admin_id, target_type,
     )
     return PaginatedAuditLogs(
         items=items,

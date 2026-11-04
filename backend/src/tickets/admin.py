@@ -7,7 +7,8 @@ Admin API-роуты для управления заявками.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,7 @@ from src.auth.dependencies import get_current_user, require_role
 from src.auth.models import User, UserRole
 from src.common.audit import log_admin_action
 from src.database import get_db
+from src.tickets.constants import OVERDUE_DAYS
 from src.tickets.models import TicketStatus
 from src.tickets.schemas import (
     PaginatedTickets,
@@ -52,15 +54,37 @@ async def admin_list_tickets(
         max_length=200,
         description="Поиск: заявитель, название, описание, адрес, ID заявки",
     ),
+    assignee: Literal["me", "unassigned", "all"] | None = Query(
+        None,
+        description="Фильтр по исполнителю: me — на мне, unassigned — без исполнителя",
+    ),
+    overdue: bool = Query(
+        False,
+        description=f"Только просроченные заявки в работе (старше {OVERDUE_DAYS} дней)",
+    ),
     page: int = Query(1, ge=1, description="Номер страницы"),
     page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_current_user),
+    admin: User = Depends(get_current_user),
 ) -> PaginatedTickets:
     """Получить список всех заявок с фильтрацией, поиском и пагинацией."""
     service = TicketService(db)
+    overdue_before = (
+        datetime.now(timezone.utc) - timedelta(days=OVERDUE_DAYS)
+        if overdue
+        else None
+    )
     items, total = await service.repo.list_by_status_and_date(
-        db, status, date_from, date_to, page, page_size, q,
+        db,
+        status,
+        date_from,
+        date_to,
+        page,
+        page_size,
+        q,
+        assignee_id=admin.id if assignee == "me" else None,
+        unassigned_only=assignee == "unassigned",
+        overdue_before=overdue_before,
     )
     return PaginatedTickets(items=items, total=total, page=page, page_size=page_size)
 

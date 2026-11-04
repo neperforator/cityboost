@@ -50,6 +50,12 @@ const routes: Array<{ path: string; name?: string; component: () => Promise<unkn
   },
   {
     path: '/admin',
+    name: 'AdminCabinet',
+    component: () => import('@/views/AdminCabinetView.vue'),
+    meta: { auth: true, admin: true },
+  },
+  {
+    path: '/admin/tickets',
     name: 'AdminDashboard',
     component: () => import('@/views/AdminDashboardView.vue'),
     meta: { auth: true, admin: true },

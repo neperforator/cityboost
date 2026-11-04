@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type AxiosResponse } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, User, AdminActionLog, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse } from '@/types'
+import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, User, AdminActionLog, AdminDashboardStats, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -235,6 +235,7 @@ export const userAPI: UserAPI = {
 
 export interface AdminAPI {
   listTickets(params?: TicketFilters): Promise<PaginatedResponse<Ticket>>
+  getDashboard(): Promise<AdminDashboardStats>
   getTicket(id: string): Promise<Ticket>
   changeStatus(id: string, status: TicketStatus, closeReason?: string): Promise<Ticket>
   assign(id: string): Promise<Ticket>
@@ -249,9 +250,14 @@ export const adminAPI: AdminAPI = {
     const q = new URLSearchParams()
     if (params.status) q.set('status', params.status)
     if (params.q) q.set('q', params.q)
+    if (params.assignee && params.assignee !== 'all') q.set('assignee', params.assignee)
+    if (params.overdue) q.set('overdue', 'true')
     if (params.page) q.set('page', String(params.page))
     if (params.page_size) q.set('page_size', String(params.page_size))
     return api.get(`/admin/tickets?${q}`).then(r => r.data)
+  },
+  getDashboard() {
+    return api.get('/admin/dashboard').then(r => r.data)
   },
   getTicket(id) {
     return api.get(`/admin/tickets/${id}`).then(r => r.data)
@@ -275,6 +281,7 @@ export const adminAPI: AdminAPI = {
     if (params.page) q.set('page', String(params.page))
     if (params.page_size) q.set('page_size', String(params.page_size))
     if (params.action) q.set('action', params.action)
+    if (params.mine) q.set('mine', 'true')
     return api.get(`/admin/audit-logs?${q}`).then(r => r.data)
   },
   getStats() {

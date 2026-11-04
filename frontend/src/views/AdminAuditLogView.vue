@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { adminAPI } from '@/api'
 import { useToast } from '@/composables/useToast'
 import { useUsers } from '@/composables/useUsers'
 import Pagination from '@/components/Pagination.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 
-import { ClockIcon, FunnelIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, FunnelIcon, UserCircleIcon } from '@heroicons/vue/24/outline'
 import { NoSymbolIcon, CheckBadgeIcon, ShieldCheckIcon, ArrowPathIcon, WrenchScrewdriverIcon } from '@heroicons/vue/24/solid'
 
+const route = useRoute()
 const toast = useToast()
 const { getUserDisplay } = useUsers()
 
@@ -18,6 +20,7 @@ const loading = ref(true)
 const page = ref(1)
 const pageSize = 30
 const actionFilter = ref('')
+const mineOnly = ref(route.query.mine === '1' || route.query.mine === 'true')
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
 const actions = [
@@ -42,6 +45,7 @@ async function loadLogs() {
   try {
     const params: any = { page: page.value, page_size: pageSize }
     if (actionFilter.value) params.action = actionFilter.value
+    if (mineOnly.value) params.mine = true
     const data = await adminAPI.getAuditLogs(params)
     logs.value = data.items
     total.value = data.total
@@ -54,6 +58,12 @@ async function loadLogs() {
 
 function setFilter(action: string) {
   actionFilter.value = action
+  page.value = 1
+  loadLogs()
+}
+
+function toggleMine() {
+  mineOnly.value = !mineOnly.value
   page.value = 1
   loadLogs()
 }
@@ -97,6 +107,16 @@ onMounted(() => {
         >
           <component :is="a.icon" class="h-3.5 w-3.5" />
           {{ a.label }}
+        </button>
+        <button
+          @click="toggleMine"
+          class="flex items-center gap-1.5 border-r-2 border-line px-3 py-2.5 text-sm font-medium transition-colors last:border-r-0 dark:border-line-dark"
+          :class="mineOnly
+            ? 'bg-primary-500 text-white'
+            : 'bg-surface text-ink-soft hover:bg-surface-muted dark:bg-surface-dark dark:text-ink-dark-soft dark:hover:bg-surface-dark-muted'"
+        >
+          <UserCircleIcon class="h-3.5 w-3.5" />
+          Только мои
         </button>
       </div>
     </div>

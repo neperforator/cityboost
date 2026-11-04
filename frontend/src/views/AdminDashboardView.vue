@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { adminAPI } from '@/api'
 import type { TicketStatus } from '@/types'
 import { useToast } from '@/composables/useToast'
@@ -8,10 +8,11 @@ import { useUsers } from '@/composables/useUsers'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 import Pagination from '@/components/Pagination.vue'
-import { InboxStackIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import { InboxStackIcon, MagnifyingGlassIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
 const PAGE_SIZE = 15
 
+const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { getUserDisplay } = useUsers()
@@ -20,7 +21,17 @@ const tickets = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const loading = ref(true)
-const statusFilter = ref('')
+const statusFilter = ref(
+  typeof route.query.status === 'string' && ['NEW', 'IN_WORK', 'DONE', 'CLOSED'].includes(route.query.status)
+    ? route.query.status
+    : '',
+)
+const assigneeFilter = ref<'all' | 'me' | 'unassigned'>(
+  route.query.assignee === 'me' || route.query.assignee === 'unassigned'
+    ? route.query.assignee
+    : 'all',
+)
+const overdueFilter = ref(route.query.overdue === '1' || route.query.overdue === 'true')
 const searchInput = ref('')
 const searchQuery = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -58,6 +69,8 @@ async function loadTickets() {
       page_size: PAGE_SIZE,
       status: (statusFilter.value || undefined) as TicketStatus | undefined,
       q: searchQuery.value || undefined,
+      assignee: assigneeFilter.value,
+      overdue: overdueFilter.value || undefined,
     })
     tickets.value = data.items
     total.value = data.total
@@ -75,8 +88,41 @@ function onPageChange(newPage: number) {
 
 function setFilter(status: string) {
   statusFilter.value = status
+  overdueFilter.value = false
   page.value = 1
+  syncQuery()
   loadTickets()
+}
+
+function setAssignee(value: 'all' | 'me' | 'unassigned') {
+  assigneeFilter.value = value
+  page.value = 1
+  syncQuery()
+  loadTickets()
+}
+
+function clearOverdue() {
+  overdueFilter.value = false
+  page.value = 1
+  syncQuery()
+  loadTickets()
+}
+
+function resetFilters() {
+  statusFilter.value = ''
+  assigneeFilter.value = 'all'
+  overdueFilter.value = false
+  page.value = 1
+  syncQuery()
+  loadTickets()
+}
+
+function syncQuery() {
+  const query: Record<string, string> = {}
+  if (statusFilter.value) query.status = statusFilter.value
+  if (assigneeFilter.value !== 'all') query.assignee = assigneeFilter.value
+  if (overdueFilter.value) query.overdue = '1'
+  router.replace({ query })
 }
 
 function clearSearch() {
@@ -125,16 +171,28 @@ onMounted(() => {
           <h1 class="font-display text-3xl font-semibold tracking-tight text-ink dark:text-ink-dark">Все заявки</h1>
           <p class="mt-2 text-sm text-ink-soft dark:text-ink-dark-soft">Очередь обращений и распределение работы службы.</p>
         </div>
-        <div class="relative w-full sm:w-72">
-          <MagnifyingGlassIcon class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft dark:text-ink-dark-soft" />
-          <input
-            v-model="searchInput"
-            type="text"
-            class="form-input pl-9"
-            placeholder="Поиск: заявитель, название, адрес..."
-            aria-label="Поиск заявок"
-            @keydown.esc="clearSearch"
-          />
+        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div class="relative w-full sm:w-72">
+            <MagnifyingGlassIcon class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft dark:text-ink-dark-soft" />
+            <input
+              v-model="searchInput"
+              type="text"
+              class="form-input pl-9"
+              placeholder="Поиск: заявитель, название, адрес..."
+              aria-label="Поиск заявок"
+              @keydown.esc="clearSearch"
+            />
+          </div>
+          <select
+            :value="assigneeFilter"
+            class="form-input sm:w-48"
+            aria-label="Фильтр по исполнителю"
+            @change="setAssignee(($event.target as HTMLSelectElement).value as 'all' | 'me' | 'unassigned')"
+          >
+            <option value="all">Все исполнители</option>
+            <option value="me">На мне</option>
+            <option value="unassigned">Без исполнителя</option>
+          </select>
         </div>
       </div>
     </header>
@@ -153,6 +211,16 @@ onMounted(() => {
           {{ f.label }}
           <span class="text-xs font-semibold tabular-nums" :class="statusFilter === f.key ? 'text-primary-100' : 'text-ink-soft dark:text-ink-dark-soft'">{{ f.count }}</span>
         </button>
+        <button
+          v-if="overdueFilter"
+          @click="clearOverdue"
+          class="flex items-center gap-1.5 bg-red-600 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+          aria-label="Сбросить фильтр просроченных заявок"
+        >
+          <ExclamationTriangleIcon class="h-3.5 w-3.5" />
+          Просроченные
+          <XMarkIcon class="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
 
@@ -164,10 +232,14 @@ onMounted(() => {
       <div v-else-if="tickets.length === 0" key="empty" class="panel mt-5 p-10 text-center">
         <InboxStackIcon class="mx-auto h-8 w-8 text-ink-soft dark:text-ink-dark-soft" />
         <p class="mt-3 text-sm text-ink-soft dark:text-ink-dark-soft">
-          {{ searchQuery ? `Ничего не найдено по запросу «${searchQuery}»` : 'Нет заявок с выбранным статусом' }}
+          {{ searchQuery
+            ? `Ничего не найдено по запросу «${searchQuery}»`
+            : overdueFilter
+              ? 'Просроченных заявок нет'
+              : 'Нет заявок с выбранным статусом' }}
         </p>
         <button v-if="searchQuery" @click="clearSearch" class="btn-secondary btn-sm mt-4">Сбросить поиск</button>
-        <button v-else @click="setFilter('')" class="btn-secondary btn-sm mt-4">Показать все</button>
+        <button v-else @click="resetFilters" class="btn-secondary btn-sm mt-4">Сбросить фильтры</button>
       </div>
 
       <div v-else key="table" class="mt-5">
