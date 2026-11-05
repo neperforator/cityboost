@@ -31,8 +31,9 @@ analytics_router = APIRouter(
     dependencies=[Depends(require_role(UserRole.ADMIN))],
 )
 
-# Статусы, которые считаются завершёнными.
-RESOLVED_STATUSES = (TicketStatus.DONE, TicketStatus.CLOSED)
+# Статусы, которые считаются завершёнными. CLOSED — это отклонение
+# (спам, дубль, не по адресу), а не решение проблемы.
+RESOLVED_STATUSES = (TicketStatus.DONE,)
 # Статусы, которые считаются «в работе» (ещё не завершены).
 OPEN_STATUSES = (TicketStatus.NEW, TicketStatus.IN_WORK)
 
@@ -236,10 +237,7 @@ async def admin_analytics(
         )
         for status in _STATUS_ORDER
     ]
-    resolved_from_period = (
-        status_counts.get(TicketStatus.DONE.value, 0)
-        + status_counts.get(TicketStatus.CLOSED.value, 0)
-    )
+    resolved_from_period = status_counts.get(TicketStatus.DONE.value, 0)
 
     # ---- Динамика по дням и накопительная очередь ----
     created_rows = (
@@ -259,9 +257,21 @@ async def admin_analytics(
             .group_by(func.date(Ticket.updated_at)),
         )
     ).all()
+    # Отклонённые заявки уходят из очереди, но не считаются решёнными.
+    left_rows = (
+        await db.execute(
+            select(func.date(Ticket.updated_at), func.count())
+            .where(
+                Ticket.status.in_((*RESOLVED_STATUSES, TicketStatus.CLOSED)),
+                Ticket.updated_at >= since,
+            )
+            .group_by(func.date(Ticket.updated_at)),
+        )
+    ).all()
 
     created_by_day = {str(day): int(count) for day, count in created_rows}
     resolved_by_day = {str(day): int(count) for day, count in resolved_rows}
+    left_by_day = {str(day): int(count) for day, count in left_rows}
 
     by_day: list[DayPoint] = []
     backlog = backlog_start
@@ -271,7 +281,7 @@ async def admin_analytics(
         key = current.isoformat()
         created = created_by_day.get(key, 0)
         resolved = resolved_by_day.get(key, 0)
-        backlog += created - resolved
+        backlog += created - left_by_day.get(key, 0)
         by_day.append(
             DayPoint(
                 date=current,

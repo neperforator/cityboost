@@ -12,7 +12,7 @@ import ImageLightbox from '@/components/ImageLightbox.vue'
 import { Marker, type Map } from 'maplibre-gl'
 import { createMap } from '@/lib/map'
 
-import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ShieldCheckIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ShieldCheckIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon, ExclamationTriangleIcon, NoSymbolIcon } from '@heroicons/vue/24/outline'
 import { WrenchScrewdriverIcon } from '@heroicons/vue/24/solid'
 
 const route = useRoute()
@@ -43,7 +43,14 @@ const statusLabels: Record<string, string> = {
   NEW: 'Новая',
   IN_WORK: 'В работе',
   DONE: 'Выполнена',
-  CLOSED: 'Закрыта',
+  CLOSED: 'Отклонена',
+}
+
+const statusActions: Record<string, string> = {
+  NEW: 'Вернуть в новые',
+  IN_WORK: 'Взять в работу',
+  DONE: 'Выполнить',
+  CLOSED: 'Отклонить',
 }
 
 async function load(silent = false) {
@@ -93,7 +100,7 @@ async function changeStatus(status: string) {
       return
     }
     if (!closeReason.value.trim()) {
-      toast.warning('Укажите причину закрытия заявки')
+      toast.warning('Укажите причину отклонения заявки')
       return
     }
   }
@@ -143,7 +150,7 @@ async function addComment() {
     if (ticket.value.comments) {
       ticket.value = { ...ticket.value, comments: [...ticket.value.comments, comment] }
     }
-    toast.success('Комментарий добавлен')
+    toast.success('Сообщение отправлено')
     load(true)
   } catch (err) {
     toast.error((err as Error).message)
@@ -173,7 +180,7 @@ function historyActionLabel(h: any): string {
     case 'ASSIGNED':
       return 'Назначена на исполнителя'
     case 'COMMENT_ADDED':
-      return 'Добавлен комментарий'
+      return 'Добавлено сообщение'
     case 'FILE_ADDED':
       return 'Прикреплён файл'
     default:
@@ -236,12 +243,17 @@ function historyActionLabel(h: any): string {
             <h2 class="text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">Описание</h2>
             <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-ink dark:text-ink-dark">{{ ticket.description }}</p>
 
-            <div v-if="ticket.status === 'CLOSED' && ticket.close_reason" class="mt-5 border-l-4 border-l-emerald-500 bg-emerald-50 p-4 dark:bg-emerald-900/20">
-              <h3 class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                <ClipboardDocumentCheckIcon class="h-4 w-4" />
-                Причина закрытия
+            <div v-if="ticket.status === 'CLOSED'" class="mt-5 border-l-4 border-l-red-500 bg-red-50 p-4 dark:bg-red-900/20">
+              <h3 class="flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300">
+                <NoSymbolIcon class="h-4 w-4" />
+                Заявка отклонена
               </h3>
-              <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-emerald-900 dark:text-emerald-200">{{ ticket.close_reason }}</p>
+              <p class="mt-1 text-sm leading-6 text-red-900 dark:text-red-200">
+                Снята с рассмотрения: спам, дубль или не относится к городу.
+              </p>
+              <p v-if="ticket.close_reason" class="mt-2 whitespace-pre-wrap text-sm leading-6 text-red-900 dark:text-red-200">
+                <span class="font-semibold">Причина:</span> {{ ticket.close_reason }}
+              </p>
             </div>
           </section>
 
@@ -283,7 +295,7 @@ function historyActionLabel(h: any): string {
           <section class="panel p-5 sm:p-6">
             <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
               <ChatBubbleLeftRightIcon class="h-4 w-4" />
-              Комментарии ({{ ticket.comments?.length || 0 }})
+              Связь с заявителем ({{ ticket.comments?.length || 0 }})
             </h2>
 
             <div v-if="ticket.comments?.length" class="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
@@ -304,15 +316,15 @@ function historyActionLabel(h: any): string {
                 </div>
               </div>
             </div>
-            <div v-else class="py-6 text-center text-sm text-ink-soft dark:text-ink-dark-soft">Комментариев пока нет</div>
+            <div v-else class="py-6 text-center text-sm text-ink-soft dark:text-ink-dark-soft">Сообщений пока нет</div>
 
             <div v-if="ticket.status !== 'DONE' && ticket.status !== 'CLOSED'" class="mt-5 border-t-2 border-line pt-4 dark:border-line-dark">
               <div class="relative">
-                <textarea v-model="commentText" class="form-textarea pb-6 text-sm" rows="2" maxlength="2000" placeholder="Добавить комментарий..."></textarea>
+                <textarea v-model="commentText" class="form-textarea pb-6 text-sm" rows="2" maxlength="2000" placeholder="Написать сообщение заявителю..."></textarea>
                 <span class="absolute bottom-2 right-3 text-xs text-ink-soft dark:text-ink-dark-soft">{{ commentText.length }}/2000</span>
               </div>
               <button @click="addComment" class="btn-primary btn-sm mt-2" :disabled="commenting || !commentText.trim()">
-                {{ commenting ? 'Отправка...' : 'Отправить комментарий' }}
+                {{ commenting ? 'Отправка...' : 'Отправить сообщение' }}
               </button>
             </div>
           </section>
@@ -334,27 +346,29 @@ function historyActionLabel(h: any): string {
                 class="flex w-full items-center gap-2 border-2 px-3 py-2 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 :class="ticket.status === s
                   ? 'cursor-not-allowed border-primary-500 bg-primary-500 text-white'
-                  : 'cursor-pointer border-line text-ink hover:border-primary-400 dark:border-line-dark dark:text-ink-dark dark:hover:border-primary-500'"
+                  : s === 'CLOSED'
+                    ? 'cursor-pointer border-red-300 text-red-700 hover:border-red-500 dark:border-red-800 dark:text-red-300'
+                    : 'cursor-pointer border-line text-ink hover:border-primary-400 dark:border-line-dark dark:text-ink-dark dark:hover:border-primary-500'"
               >
                 <CheckCircleIcon v-if="ticket.status === s" class="h-4 w-4" />
                 <span v-else class="h-4 w-4" />
-                {{ statusLabels[s] }}
+                {{ ticket.status === s ? statusLabels[s] : (statusActions[s] || statusLabels[s]) }}
               </button>
             </div>
 
             <div v-if="pendingClose" class="mt-4 border-t-2 border-line pt-4 dark:border-line-dark">
-              <label for="close-reason" class="form-label">Причина закрытия заявки</label>
+              <label for="close-reason" class="form-label">Причина отклонения</label>
               <textarea
                 id="close-reason"
                 v-model="closeReason"
                 class="form-textarea text-sm"
                 rows="3"
                 maxlength="1000"
-                placeholder="Укажите, почему заявка закрывается..."
+                placeholder="Спам, дубль, не относится к городу..."
               ></textarea>
               <span class="mt-1 block text-right text-xs text-ink-soft dark:text-ink-dark-soft">{{ closeReason.length }}/1000</span>
               <div class="mt-2 flex gap-2">
-                <button @click="changeStatus('CLOSED')" class="btn-primary btn-sm flex-1" :disabled="!closeReason.trim()">Подтвердить</button>
+                <button @click="changeStatus('CLOSED')" class="btn-danger btn-sm flex-1" :disabled="!closeReason.trim()">Отклонить заявку</button>
                 <button @click="cancelClose" class="btn-secondary btn-sm">Отмена</button>
               </div>
             </div>

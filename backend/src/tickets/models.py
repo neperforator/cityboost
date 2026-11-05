@@ -8,7 +8,18 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+    true,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -47,7 +58,14 @@ class Ticket(Base):
     address: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
     close_reason: Mapped[str | None] = mapped_column(
         Text, nullable=True,
-        comment="Причина закрытия заявки (устанавливается при CLOSED)",
+        comment="Причина отклонения заявки (устанавливается при CLOSED)",
+    )
+    notify_author: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=true(),
+        nullable=False,
+        comment="Отправлять автору email-уведомления по заявке",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True,
@@ -64,7 +82,7 @@ class Ticket(Base):
         foreign_keys=[assigned_to],
     )
     # Связи загружаются только явно через selectinload, чтобы списки заявок
-    # не тянули все файлы/комментарии/историю.
+    # не тянули все файлы/сообщения/историю.
     files = relationship("TicketFile", back_populates="ticket", lazy="raise", cascade="all, delete-orphan")
     history = relationship("TicketHistory", back_populates="ticket", lazy="raise", cascade="all, delete-orphan")
     comments = relationship("TicketComment", back_populates="ticket", lazy="raise", cascade="all, delete-orphan")

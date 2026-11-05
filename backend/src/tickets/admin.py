@@ -10,13 +10,17 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_current_user, require_role
 from src.auth.models import User, UserRole
 from src.common.audit import log_admin_action
 from src.database import get_db
+from src.notifications.tickets import (
+    send_ticket_comment,
+    send_ticket_status_changed,
+)
 from src.tickets.constants import OVERDUE_DAYS
 from src.tickets.models import TicketStatus
 from src.tickets.schemas import (
@@ -192,7 +196,7 @@ async def admin_tickets_map(
     "/{ticket_id}",
     response_model=TicketOutDetail,
     summary="Детали заявки (админ)",
-    description="Полная информация о заявке с историей изменений, файлами и комментариями.",
+    description="Полная информация о заявке с историей изменений, файлами и сообщениями.",
 )
 async def admin_get_ticket(
     ticket_id: uuid.UUID,
@@ -217,6 +221,7 @@ async def admin_get_ticket(
         address=ticket.address,
         user_name=ticket.user.name if ticket.user else "",
         assigned_to_name=ticket.assignee.name if ticket.assignee else None,
+        notify_author=ticket.notify_author,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
         files=ticket.files,
@@ -229,16 +234,20 @@ async def admin_get_ticket(
     response_model=TicketOut,
     summary="Изменить статус заявки",
     description="Меняет статус заявки и автоматически логирует изменение в TicketHistory. "
-    "При статусе CLOSED требуется указать причину закрытия (close_reason).",
+    "При статусе CLOSED требуется указать причину отклонения (close_reason).",
 )
 async def admin_change_status(
     ticket_id: uuid.UUID,
     data: TicketStatusChangeRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_user),
 ) -> TicketOut:
     """Изменить статус заявки с логированием."""
     service = TicketService(db)
+    # Старый статус и автор нужны для уведомления — фиксируем до изменения.
+    existing = await service.get_ticket(ticket_id)
+    old_status = existing.status.value if existing and existing.status else None
     try:
         ticket = await service.change_status(
             ticket_id, data.new_status, admin.id, close_reason=data.close_reason,
@@ -260,6 +269,26 @@ async def admin_change_status(
         ticket.title, details,
     )
 
+    # Уведомляем автора, если статус действительно изменился и это не он сам.
+    author = existing.user if existing else None
+    if (
+        author is not None
+        and author.email
+        and author.id != admin.id
+        and ticket.notify_author
+        and old_status != ticket.status.value
+    ):
+        background_tasks.add_task(
+            send_ticket_status_changed,
+            to=author.email,
+            name=author.name,
+            ticket_id=ticket.id,
+            ticket_title=ticket.title,
+            old_status=old_status,
+            new_status=ticket.status.value,
+            close_reason=ticket.close_reason,
+        )
+
     return ticket
 
 
@@ -271,11 +300,15 @@ async def admin_change_status(
 )
 async def admin_assign_ticket(
     ticket_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_user),
 ) -> TicketOut:
     """Назначить заявку на текущего администратора."""
     service = TicketService(db)
+    # Фиксируем состояние до назначения: статус и автора.
+    existing = await service.get_ticket(ticket_id)
+    old_status = existing.status.value if existing and existing.status else None
     ticket = await service.assign_ticket(ticket_id, admin.id, admin.name)
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
@@ -287,6 +320,26 @@ async def admin_assign_ticket(
         f"Заявка «{ticket.title}» назначена на администратора {admin.name}",
     )
 
+    # Автору — если назначение перевело заявку в новый статус.
+    author = existing.user if existing else None
+    if (
+        author is not None
+        and author.email
+        and author.id != admin.id
+        and ticket.notify_author
+        and old_status != ticket.status.value
+    ):
+        background_tasks.add_task(
+            send_ticket_status_changed,
+            to=author.email,
+            name=author.name,
+            ticket_id=ticket.id,
+            ticket_title=ticket.title,
+            old_status=old_status,
+            new_status=ticket.status.value,
+            close_reason=ticket.close_reason,
+        )
+
     return ticket
 
 
@@ -294,17 +347,20 @@ async def admin_assign_ticket(
     "/{ticket_id}/comments",
     response_model=TicketCommentOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Добавить комментарий (админ)",
-    description="Добавить внутренний комментарий к заявке от имени администратора.",
+    summary="Добавить сообщение (админ)",
+    description="Добавить сообщение к заявке от имени администратора.",
 )
 async def admin_add_comment(
     ticket_id: uuid.UUID,
     data: TicketCommentCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_user),
 ) -> TicketCommentOut:
-    """Добавить комментарий к заявке."""
+    """Добавить сообщение к заявке."""
     service = TicketService(db)
+    # Нужны автор и исполнитель заявки для рассылки уведомлений.
+    ticket = await service.get_ticket(ticket_id)
     try:
         comment = await service.add_comment(ticket_id, admin.id, data.comment_text)
     except ValueError as exc:
@@ -314,6 +370,22 @@ async def admin_add_comment(
         ) from None
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+
+    # Уведомляем только автора заявки (если сообщение оставил не он).
+    if ticket is not None and ticket.user is not None:
+        author = ticket.user
+        if author.email and author.id != admin.id and ticket.notify_author:
+            background_tasks.add_task(
+                send_ticket_comment,
+                to=author.email,
+                name=author.name,
+                ticket_id=ticket.id,
+                ticket_title=ticket.title,
+                author_name=admin.name,
+                comment_text=comment.comment_text,
+                admin_link=author.role == UserRole.ADMIN,
+            )
+
     return TicketCommentOut(
         id=comment.id,
         ticket_id=comment.ticket_id,

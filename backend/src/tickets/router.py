@@ -7,7 +7,17 @@ from __future__ import annotations
 import uuid
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +25,10 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User, UserRole
 from src.config import settings
 from src.database import get_db
+from src.notifications.tickets import (
+    send_ticket_comment,
+    send_ticket_created,
+)
 from src.tickets.constants import is_in_vitebsk
 from src.tickets.models import Ticket, TicketStatus
 from src.tickets.schemas import (
@@ -22,6 +36,7 @@ from src.tickets.schemas import (
     TicketCommentCreate,
     TicketCommentOut,
     TicketFileOut,
+    TicketNotificationUpdate,
     TicketOutDetail,
     TicketStats,
 )
@@ -86,6 +101,28 @@ def _can_access_ticket(ticket: Ticket, user: User) -> bool:
     return ticket.user_id == user.id or user.role == UserRole.ADMIN
 
 
+def _ticket_detail(ticket: Ticket) -> TicketOutDetail:
+    """Собрать детальную карточку заявки из ORM-объекта со связями."""
+    return TicketOutDetail(
+        id=ticket.id,
+        user_id=ticket.user_id,
+        assigned_to=ticket.assigned_to,
+        title=ticket.title,
+        description=ticket.description,
+        status=ticket.status,
+        latitude=ticket.latitude,
+        longitude=ticket.longitude,
+        address=ticket.address,
+        user_name=ticket.user.name if ticket.user else "",
+        assigned_to_name=ticket.assignee.name if ticket.assignee else None,
+        notify_author=ticket.notify_author,
+        created_at=ticket.created_at,
+        updated_at=ticket.updated_at,
+        files=ticket.files,
+        comments=ticket.comments,
+    )
+
+
 @tickets_router.post(
     "",
     response_model=TicketOutDetail,
@@ -96,11 +133,13 @@ def _can_access_ticket(ticket: Ticket, user: User) -> bool:
     "files — список файлов (JPEG/PNG), минимум 1.",
 )
 async def create_ticket(
+    background_tasks: BackgroundTasks,
     title: str = Form(..., min_length=1, max_length=255),
     description: str = Form(..., min_length=1),
     address: str | None = Form(None, max_length=500),
     latitude: float | None = Form(None),
     longitude: float | None = Form(None),
+    notify_author: bool = Form(True),
     files: list[UploadFile] = File(..., description="Фото (JPEG/PNG, мин. 1 файл)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -148,7 +187,20 @@ async def create_ticket(
         latitude=latitude,
         longitude=longitude,
         address=address,
+        notify_author=notify_author,
     )
+
+    # Подтверждение автору — отправляется в фоне, чтобы не задерживать ответ.
+    if notify_author and current_user.email:
+        background_tasks.add_task(
+            send_ticket_created,
+            to=current_user.email,
+            name=current_user.name,
+            ticket_id=ticket.id,
+            ticket_title=ticket.title,
+            address=ticket.address,
+        )
+
     return ticket
 
 
@@ -197,7 +249,7 @@ async def ticket_stats(
     "/{ticket_id}",
     response_model=TicketOutDetail,
     summary="Детали заявки",
-    description="Получить полную информацию о заявке с файлами и комментариями.",
+    description="Получить полную информацию о заявке с файлами и сообщениями.",
 )
 async def get_ticket(
     ticket_id: uuid.UUID,
@@ -214,23 +266,37 @@ async def get_ticket(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Только автор заявки или администратор может просматривать заявку",
         )
-    return TicketOutDetail(
-        id=ticket.id,
-        user_id=ticket.user_id,
-        assigned_to=ticket.assigned_to,
-        title=ticket.title,
-        description=ticket.description,
-        status=ticket.status,
-        latitude=ticket.latitude,
-        longitude=ticket.longitude,
-        address=ticket.address,
-        user_name=ticket.user.name if ticket.user else "",
-        assigned_to_name=ticket.assignee.name if ticket.assignee else None,
-        created_at=ticket.created_at,
-        updated_at=ticket.updated_at,
-        files=ticket.files,
-        comments=ticket.comments,
-    )
+    return _ticket_detail(ticket)
+
+
+@tickets_router.patch(
+    "/{ticket_id}/notifications",
+    response_model=TicketOutDetail,
+    summary="Настроить email-уведомления по заявке",
+    description="Включить или выключить уведомления об изменениях заявки. "
+    "Доступно автору заявки.",
+)
+async def update_ticket_notifications(
+    ticket_id: uuid.UUID,
+    data: TicketNotificationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TicketOutDetail:
+    """Включить или выключить уведомления по заявке."""
+    service = TicketService(db)
+    ticket = await service.get_ticket(ticket_id)
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    if ticket.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Только автор заявки может настраивать уведомления",
+        )
+
+    updated = await service.set_notify_author(ticket_id, data.notify_author)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    return _ticket_detail(updated)
 
 
 @tickets_router.post(
@@ -262,7 +328,7 @@ async def upload_file(
     if ticket.status in (TicketStatus.DONE, TicketStatus.CLOSED):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Нельзя загрузить файл к заявке со статусом «Выполнена» или «Закрыта»",
+            detail="Нельзя загрузить файл к заявке со статусом «Выполнена» или «Отклонена»",
         )
 
     existing_files = await service.get_file_count(ticket_id)
@@ -293,16 +359,17 @@ async def upload_file(
     "/{ticket_id}/comments",
     response_model=TicketCommentOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Добавить комментарий",
-    description="Добавить комментарий к заявке (автор заявки или администратор).",
+    summary="Добавить сообщение",
+    description="Добавить сообщение к заявке (автор заявки или администратор).",
 )
 async def add_comment(
     ticket_id: uuid.UUID,
     data: TicketCommentCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> TicketCommentOut:
-    """Добавить комментарий к заявке."""
+    """Добавить сообщение к заявке."""
     service = TicketService(db)
     # Проверяем, что заявка существует и пользователь — автор или админ
     ticket = await service.get_ticket(ticket_id)
@@ -311,7 +378,7 @@ async def add_comment(
     if not _can_access_ticket(ticket, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Только автор заявки или администратор может добавлять комментарии",
+            detail="Только автор заявки или администратор может писать сообщения",
         )
     try:
         comment = await service.add_comment(ticket_id, current_user.id, data.comment_text)
@@ -320,6 +387,26 @@ async def add_comment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from None
+
+    # Уведомляем только автора заявки (если сообщение оставил не он).
+    author = ticket.user
+    if (
+        author is not None
+        and author.email
+        and author.id != current_user.id
+        and ticket.notify_author
+    ):
+        background_tasks.add_task(
+            send_ticket_comment,
+            to=author.email,
+            name=author.name,
+            ticket_id=ticket.id,
+            ticket_title=ticket.title,
+            author_name=current_user.name,
+            comment_text=comment.comment_text,
+            admin_link=author.role == UserRole.ADMIN,
+        )
+
     return TicketCommentOut(
         id=comment.id,
         ticket_id=comment.ticket_id,

@@ -8,7 +8,7 @@ const features = [
   { icon: MapPinIcon, title: 'Карта с координатами', desc: 'Выберите точное место на карте или найдите по адресу' },
   { icon: PhotoIcon, title: 'Загрузка файлов', desc: 'Прикрепите фото проблемы (JPEG/PNG, до 10 МБ)' },
   { icon: ArrowPathIcon, title: 'Отслеживание статуса', desc: 'Следите за выполнением заявки в реальном времени' },
-  { icon: ChatBubbleLeftRightIcon, title: 'Комментарии', desc: 'Общайтесь с администрацией по вашей заявке' },
+  { icon: ChatBubbleLeftRightIcon, title: 'Связь с администрацией', desc: 'Общайтесь с администрацией по вашей заявке' },
 ]
 
 const techStack = ['Vue 3', 'Tailwind CSS', 'Leaflet.js', 'FastAPI', 'PostgreSQL', 'Docker', 'OpenStreetMap', 'Heroicons']

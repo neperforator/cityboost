@@ -10,7 +10,7 @@ import ImageLightbox from '@/components/ImageLightbox.vue'
 import { Marker, type Map } from 'maplibre-gl'
 import { createMap } from '@/lib/map'
 
-import { ArrowLeftIcon, ArrowUpTrayIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, ShieldCheckIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, ArrowUpTrayIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, ShieldCheckIcon, ExclamationTriangleIcon, NoSymbolIcon, BellIcon } from '@heroicons/vue/24/outline'
 
 const route = useRoute()
 const toast = useToast()
@@ -23,17 +23,19 @@ const uploadFile = ref<File | null>(null)
 const uploading = ref(false)
 const commentText = ref('')
 const commenting = ref(false)
+const savingNotify = ref(false)
 const lightboxRef = ref<InstanceType<typeof ImageLightbox> | null>(null)
 let map: Map | null = null
 
-const statusOrder = ['NEW', 'IN_WORK', 'DONE', 'CLOSED']
+const statusOrder = ['NEW', 'IN_WORK', 'DONE']
 const statusIndex = computed(() => Math.max(0, statusOrder.indexOf(ticket.value?.status)))
+const isAuthor = computed(() => auth.user?.id === ticket.value?.user_id)
+const notificationsOn = computed(() => ticket.value?.notify_author !== false)
 
 const routeStops = [
   { key: 'NEW', label: 'Зарегистрирована' },
   { key: 'IN_WORK', label: 'В работе' },
   { key: 'DONE', label: 'Выполнена' },
-  { key: 'CLOSED', label: 'Закрыта' },
 ]
 
 function openLightbox(files: any[], index: number) {
@@ -97,7 +99,7 @@ async function addComment() {
     if (ticket.value.comments) {
       ticket.value = { ...ticket.value, comments: [...ticket.value.comments, comment] }
     }
-    toast.success('Комментарий добавлен')
+    toast.success('Сообщение отправлено')
     loadTicket(true)
   } catch (err) {
     toast.error((err as Error).message)
@@ -105,6 +107,21 @@ async function addComment() {
     await loadTicket()
   } finally {
     commenting.value = false
+  }
+}
+
+async function toggleNotifications() {
+  if (!ticket.value) return
+  const next = !notificationsOn.value
+  savingNotify.value = true
+  try {
+    const updated = await ticketAPI.updateNotifications(ticket.value.id, next)
+    ticket.value = { ...ticket.value, notify_author: updated.notify_author }
+    toast.success(next ? 'Уведомления включены' : 'Уведомления отключены')
+  } catch (err) {
+    toast.error((err as Error).message)
+  } finally {
+    savingNotify.value = false
   }
 }
 
@@ -164,8 +181,32 @@ onUnmounted(() => {
         </div>
       </header>
 
+      <!-- Email notifications toggle -->
+      <section
+        v-if="isAuthor"
+        class="mt-5 flex flex-wrap items-center justify-between gap-3 border-2 border-line bg-surface px-4 py-3 dark:border-line-dark dark:bg-surface-dark"
+      >
+        <div class="flex items-start gap-2.5">
+          <BellIcon class="mt-0.5 h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400" />
+          <div>
+            <p class="text-sm font-medium text-ink dark:text-ink-dark">Уведомления об изменениях</p>
+            <p class="mt-0.5 text-xs text-ink-soft dark:text-ink-dark-soft">
+              {{ notificationsOn ? 'Включены — письма придут на ваш email.' : 'Отключены — письма по этой заявке не отправляются.' }}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn-secondary btn-sm"
+          :disabled="savingNotify"
+          @click="toggleNotifications"
+        >
+          {{ savingNotify ? 'Сохранение...' : (notificationsOn ? 'Отключить' : 'Включить') }}
+        </button>
+      </section>
+
       <!-- Route progress -->
-      <section class="mt-6 border-2 border-line bg-surface p-5 dark:border-line-dark dark:bg-surface-dark">
+      <section v-if="ticket.status !== 'CLOSED'" class="mt-6 border-2 border-line bg-surface p-5 dark:border-line-dark dark:bg-surface-dark">
         <p class="text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">Маршрут заявки</p>
         <div class="mt-5 flex flex-col gap-0 sm:flex-row sm:items-start">
           <div v-for="(stop, i) in routeStops" :key="stop.key" class="relative flex flex-1 gap-3 pb-5 last:pb-0 sm:flex-col sm:gap-2 sm:pb-0">
@@ -189,12 +230,17 @@ onUnmounted(() => {
         <h2 class="text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">Описание</h2>
         <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-ink dark:text-ink-dark">{{ ticket.description }}</p>
 
-        <div v-if="ticket.status === 'CLOSED' && ticket.close_reason" class="mt-5 border-l-4 border-l-emerald-500 bg-emerald-50 p-4 dark:bg-emerald-900/20">
-          <h3 class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-            <CheckCircleIcon class="h-4 w-4" />
-            Причина закрытия
+        <div v-if="ticket.status === 'CLOSED'" class="mt-5 border-l-4 border-l-red-500 bg-red-50 p-4 dark:bg-red-900/20">
+          <h3 class="flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300">
+            <NoSymbolIcon class="h-4 w-4" />
+            Заявка отклонена
           </h3>
-          <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-emerald-900 dark:text-emerald-200">{{ ticket.close_reason }}</p>
+          <p class="mt-1 text-sm leading-6 text-red-900 dark:text-red-200">
+            Заявка снята с рассмотрения и не будет выполнена.
+          </p>
+          <p v-if="ticket.close_reason" class="mt-2 whitespace-pre-wrap text-sm leading-6 text-red-900 dark:text-red-200">
+            <span class="font-semibold">Причина:</span> {{ ticket.close_reason }}
+          </p>
         </div>
       </section>
 
@@ -253,15 +299,15 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <!-- Comments -->
+      <!-- Связь с администратором -->
       <section class="panel mt-5 p-5 sm:p-6">
         <h2 class="flex items-center gap-1.5 text-xs font-semibold text-ink-soft dark:text-ink-dark-soft">
           <ChatBubbleLeftRightIcon class="h-4 w-4" />
-          Комментарии ({{ ticket.comments?.length || 0 }})
+          Связь с администратором ({{ ticket.comments?.length || 0 }})
         </h2>
 
         <div v-if="!ticket.comments?.length" class="py-8 text-center text-sm text-ink-soft dark:text-ink-dark-soft">
-          Комментариев пока нет
+          Сообщений пока нет
         </div>
 
         <div v-else class="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
@@ -285,11 +331,11 @@ onUnmounted(() => {
 
         <div v-if="ticket.status !== 'DONE' && ticket.status !== 'CLOSED'" class="mt-5 border-t-2 border-line pt-4 dark:border-line-dark">
           <div class="relative">
-            <textarea v-model="commentText" class="form-textarea pb-6 text-sm" rows="2" maxlength="2000" placeholder="Добавить комментарий..."></textarea>
+            <textarea v-model="commentText" class="form-textarea pb-6 text-sm" rows="2" maxlength="2000" placeholder="Написать сообщение администратору..."></textarea>
             <span class="absolute bottom-2 right-3 text-xs text-ink-soft dark:text-ink-dark-soft">{{ commentText.length }}/2000</span>
           </div>
           <button @click="addComment" class="btn-primary btn-sm mt-2" :disabled="commenting || !commentText.trim()">
-            {{ commenting ? 'Отправка...' : 'Отправить комментарий' }}
+            {{ commenting ? 'Отправка...' : 'Отправить сообщение' }}
           </button>
         </div>
       </section>

@@ -4,6 +4,7 @@
 *.local
 .claude/
 scripts/
+opencode/
 
 # Python
 __pycache__/

@@ -4,7 +4,7 @@ withDefaults(defineProps<{
   size?: string
 }>(), { size: 'normal' })
 
-const labels: Record<string, string> = { NEW: 'Новая', IN_WORK: 'В работе', DONE: 'Выполнена', CLOSED: 'Закрыта' }
+const labels: Record<string, string> = { NEW: 'Новая', IN_WORK: 'В работе', DONE: 'Выполнена', CLOSED: 'Отклонена' }
 </script>
 
 <template>

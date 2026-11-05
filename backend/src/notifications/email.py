@@ -11,8 +11,11 @@ import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import parseaddr
 from html import escape as html_escape
 from typing import TYPE_CHECKING
+
+from src.notifications.layout import code_block, render_email
 
 if TYPE_CHECKING:
     pass
@@ -65,13 +68,16 @@ class EmailService:
         msg["Subject"] = subject
         msg.attach(MIMEText(html, "html"))
 
+        # В конверте SMTP должен быть чистый адрес: «Имя <адрес>» там недопустимо.
+        envelope_from = parseaddr(self.from_addr)[1] or self.from_addr
+
         try:
             with smtplib.SMTP(self.host, self.port, timeout=15) as server:
                 if self.use_tls:
                     server.starttls()
                 if self.user:
                     server.login(self.user, self.password)
-                server.sendmail(self.from_addr, [to], msg.as_string())
+                server.sendmail(envelope_from, [to], msg.as_string())
             logger.info("Письмо отправлено на %s: %s", to, subject)
             return True
         except smtplib.SMTPException as exc:
@@ -92,59 +98,43 @@ class EmailService:
         self, email: str, token: str, name: str, base_url: str = ""
     ) -> bool:
         """Отправить письмо для сброса пароля."""
+        if not base_url:
+            from src.config import settings
+
+            base_url = settings.FRONTEND_URL
         reset_link = f"{base_url}#/reset-password?token={token}"
-        html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: Arial, sans-serif; background: #f4f4f6; padding: 40px 20px;">
-  <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-    <div style="text-align: center; font-size: 40px; margin-bottom: 16px;">🏙️</div>
-    <h2 style="text-align: center; color: #1e1e2f; margin: 0 0 8px;">Сброс пароля</h2>
-    <p style="color: #6b7280; font-size: 14px; text-align: center;">Здравствуйте, <strong>{name}</strong>!</p>
-    <p style="color: #6b7280; font-size: 14px; text-align: center;">
-      Вы запросили сброс пароля в CityBoost. Нажмите на кнопку ниже:
-    </p>
-    <div style="text-align: center; margin: 24px 0;">
-      <a href="{reset_link}"
-         style="display: inline-block; background: #4f46e5; color: #fff; font-size: 16px; font-weight: 600;
-                padding: 12px 32px; border-radius: 8px; text-decoration: none;">
-        Сбросить пароль
-      </a>
-    </div>
-    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-      Ссылка действительна 1 час. Если вы не запрашивали сброс, проигнорируйте это письмо.
-    </p>
-  </div>
-</body>
-</html>"""
+        html = render_email(
+            preheader="Ссылка для сброса пароля CityBoost.",
+            heading="Сброс пароля",
+            intro=(
+                f"Здравствуйте, {html_escape(name or 'пользователь')}. "
+                "Мы получили запрос на новый пароль для вашего аккаунта."
+            ),
+            blocks=[],
+            cta_text="Задать новый пароль",
+            cta_url=reset_link,
+            footer=(
+                "Ссылка действует 1 час. Если вы не запрашивали сброс, "
+                "просто проигнорируйте это письмо."
+            ),
+        )
         return await self.send_email(email, "CityBoost — Сброс пароля", html)
 
     async def send_verification_code(self, email: str, code: str, name: str) -> bool:
         """Отправить код подтверждения email."""
-        html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: Arial, sans-serif; background: #f4f4f6; padding: 40px 20px;">
-  <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-    <div style="text-align: center; font-size: 40px; margin-bottom: 16px;">🏙️</div>
-    <h2 style="text-align: center; color: #1e1e2f; margin: 0 0 8px;">Подтверждение email</h2>
-    <p style="color: #6b7280; font-size: 14px; text-align: center;">Здравствуйте, <strong>{name}</strong>!</p>
-    <p style="color: #6b7280; font-size: 14px; text-align: center;">
-      Ваш код для подтверждения email в CityBoost:
-    </p>
-    <div style="text-align: center; margin: 24px 0;">
-      <div style="display: inline-block; background: #f0f4ff; color: #1e1e2f; font-size: 36px;
-                  font-weight: 700; letter-spacing: 12px; padding: 16px 32px;
-                  border-radius: 12px; border: 2px dashed #4f46e5;">
-        {code}
-      </div>
-    </div>
-    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-      Код действителен 10 минут. Если вы не регистрировались в CityBoost, проигнорируйте это письмо.
-    </p>
-  </div>
-</body>
-</html>"""
+        html = render_email(
+            preheader="Код подтверждения email CityBoost.",
+            heading="Подтвердите email",
+            intro=(
+                f"Здравствуйте, {html_escape(name or 'пользователь')}. "
+                "Введите код ниже в окне подтверждения CityBoost."
+            ),
+            blocks=[code_block(code)],
+            footer=(
+                "Код действует 10 минут. Если вы не регистрировались в CityBoost, "
+                "проигнорируйте это письмо."
+            ),
+        )
         return await self.send_email(email, "CityBoost — Код подтверждения", html)
 
     async def send_admin_2fa_code(
@@ -155,31 +145,19 @@ class EmailService:
         expires_minutes: int = 10,
     ) -> bool:
         """Отправить код подтверждения входа для администратора."""
-        safe_name = html_escape(name)
-        html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: Arial, sans-serif; background: #f4f4f6; padding: 40px 20px;">
-  <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-    <div style="text-align: center; font-size: 40px; margin-bottom: 16px;">🔐</div>
-    <h2 style="text-align: center; color: #1e1e2f; margin: 0 0 8px;">Подтверждение входа</h2>
-    <p style="color: #6b7280; font-size: 14px; text-align: center;">Здравствуйте, <strong>{safe_name}</strong>!</p>
-    <p style="color: #6b7280; font-size: 14px; text-align: center;">
-      Для входа в панель администратора CityBoost введите код:
-    </p>
-    <div style="text-align: center; margin: 24px 0;">
-      <div style="display: inline-block; background: #f0f4ff; color: #1e1e2f; font-size: 36px;
-                  font-weight: 700; letter-spacing: 12px; padding: 16px 32px;
-                  border-radius: 12px; border: 2px dashed #4f46e5;">
-        {code}
-      </div>
-    </div>
-    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-      Код действителен {expires_minutes} минут. Если вы не пытались войти, смените пароль.
-    </p>
-  </div>
-</body>
-</html>"""
+        html = render_email(
+            preheader="Код для входа в панель администратора CityBoost.",
+            heading="Код для входа",
+            intro=(
+                f"Здравствуйте, {html_escape(name or 'пользователь')}. "
+                "Введите код ниже, чтобы войти в панель администратора."
+            ),
+            blocks=[code_block(code)],
+            footer=(
+                f"Код действует {expires_minutes} минут. "
+                "Если вы не пытались войти, смените пароль."
+            ),
+        )
         return await self.send_email(email, "CityBoost — Код подтверждения входа", html)
 
 

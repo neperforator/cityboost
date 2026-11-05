@@ -23,7 +23,7 @@ STATUS_LABELS: dict[str, str] = {
     "NEW": "Новая",
     "IN_WORK": "В работе",
     "DONE": "Выполнена",
-    "CLOSED": "Закрыта",
+    "CLOSED": "Отклонена",
 }
 
 
@@ -50,6 +50,7 @@ class TicketService:
         latitude: float | None = None,
         longitude: float | None = None,
         address: str | None = None,
+        notify_author: bool = True,
     ) -> Ticket:
         """Создать заявку с файлами — всё в одной транзакции."""
         # Создаём заявку
@@ -61,6 +62,7 @@ class TicketService:
             latitude=latitude,
             longitude=longitude,
             address=address,
+            notify_author=notify_author,
         )
 
         upload_dir = Path(settings.UPLOAD_PATH) / str(ticket.id)
@@ -140,6 +142,19 @@ class TicketService:
         """Получить заявку по ID."""
         return await self.repo.get_by_id(self.db, ticket_id)
 
+    async def set_notify_author(
+        self,
+        ticket_id: uuid.UUID,
+        notify_author: bool,
+    ) -> Ticket | None:
+        """Включить или выключить email-уведомления по заявке."""
+        ticket = await self.repo.get_by_id_simple(self.db, ticket_id)
+        if ticket is None:
+            return None
+        ticket.notify_author = notify_author
+        await self.db.flush()
+        return await self.repo.get_by_id(self.db, ticket_id)
+
     async def list_user_tickets(
         self,
         user_id: uuid.UUID,
@@ -165,7 +180,7 @@ class TicketService:
         if old_status == new_status.value:
             return ticket
         if new_status == TicketStatus.CLOSED and not (close_reason or "").strip():
-            raise ValueError("Необходимо указать причину закрытия заявки")
+            raise ValueError("Необходимо указать причину отклонения заявки")
 
         updated = await self.repo.update_status(
             self.db, ticket_id, new_status, close_reason=close_reason,
@@ -173,7 +188,7 @@ class TicketService:
         if updated:
             details = f"Статус изменён с «{_status_label(old_status)}» на «{_status_label(new_status.value)}»"
             if new_status == TicketStatus.CLOSED:
-                details += f". Причина закрытия: {close_reason}"
+                details += f". Причина отклонения: {close_reason}"
             await self.history_repo.create(
                 self.db,
                 ticket_id,
@@ -216,13 +231,13 @@ class TicketService:
         author_id: uuid.UUID,
         text: str,
     ) -> TicketComment | None:
-        """Добавить комментарий к заявке."""
+        """Добавить сообщение к заявке."""
         ticket = await self.repo.get_by_id_simple(self.db, ticket_id)
         if ticket is None:
             return None
         if ticket.status in (TicketStatus.DONE, TicketStatus.CLOSED):
             raise ValueError(
-                "Нельзя добавить комментарий к заявке со статусом «Выполнена» или «Закрыта»",
+                "Нельзя добавить сообщение к заявке со статусом «Выполнена» или «Отклонена»",
             )
         comment = await self.comment_repo.create(self.db, ticket_id, author_id, text)
         await self.history_repo.create(
@@ -232,7 +247,7 @@ class TicketService:
             "COMMENT_ADDED",
             None,
             ticket.status.value,
-            "Добавлен комментарий",
+            "Добавлено сообщение",
         )
         return comment
 
@@ -250,7 +265,7 @@ class TicketService:
             return None
         if ticket.status in (TicketStatus.DONE, TicketStatus.CLOSED):
             raise ValueError(
-                "Нельзя загрузить файл к заявке со статусом «Выполнена» или «Закрыта»",
+                "Нельзя загрузить файл к заявке со статусом «Выполнена» или «Отклонена»",
             )
         file_record = await self.file_repo.create(
             self.db, ticket_id, file_path, file_size, mime_type,

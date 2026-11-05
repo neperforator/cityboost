@@ -18,15 +18,23 @@ class TicketStatusChangeRequest(BaseModel):
     new_status: TicketStatus = Field(..., description="Новый статус заявки")
     close_reason: str | None = Field(
         None, max_length=1000,
-        description="Причина закрытия (обязательна при статусе CLOSED)",
+        description="Причина отклонения (обязательна при статусе CLOSED)",
     )
 
     @model_validator(mode="after")
     @classmethod
     def validate_close_reason(cls, data):
         if data.new_status == TicketStatus.CLOSED and not (data.close_reason or "").strip():
-            raise ValueError("Необходимо указать причину закрытия заявки")
+            raise ValueError("Необходимо указать причину отклонения заявки")
         return data
+
+
+class TicketNotificationUpdate(BaseModel):
+    """Включение/выключение email-уведомлений по заявке."""
+    notify_author: bool = Field(
+        ...,
+        description="Отправлять автору уведомления об изменениях заявки",
+    )
 
 
 # ---------- Ticket ----------
@@ -43,6 +51,7 @@ class TicketOutBase(BaseModel):
     address: str | None
     user_name: str = ""
     assigned_to_name: str | None = None
+    notify_author: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -71,6 +80,7 @@ class TicketOutBase(BaseModel):
                 "updated_at": data.updated_at,
                 "user_name": user.name if user else "",
                 "assigned_to_name": assignee.name if assignee else None,
+                "notify_author": getattr(data, "notify_author", True),
             }
             # Детальные поля добавляем, только если они реально есть у объекта.
             if hasattr(data, "description"):
@@ -164,12 +174,12 @@ class TicketFileOut(BaseModel):
 # ---------- TicketComments ----------
 
 class TicketCommentCreate(BaseModel):
-    """Создание комментария (публичного)."""
-    comment_text: str = Field(..., min_length=1, max_length=2000, description="Текст комментария")
+    """Создание сообщения (публичного)."""
+    comment_text: str = Field(..., min_length=1, max_length=2000, description="Текст сообщения")
 
 
 class TicketCommentOut(BaseModel):
-    """Комментарий к заявке."""
+    """Сообщение к заявке."""
     id: uuid.UUID
     ticket_id: uuid.UUID
     author_id: uuid.UUID

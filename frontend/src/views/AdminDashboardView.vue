@@ -53,6 +53,7 @@ const filters = computed<{ key: TicketStatus | ''; label: string; count: number 
   { key: 'NEW', label: 'Новые', count: stats.value.new },
   { key: 'IN_WORK', label: 'В работе', count: stats.value.in_work },
   { key: 'DONE', label: 'Выполнены', count: stats.value.done },
+  { key: 'CLOSED', label: 'Отклонены', count: stats.value.closed },
 ])
 
 async function loadStats() {

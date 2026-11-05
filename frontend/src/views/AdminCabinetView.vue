@@ -111,7 +111,7 @@ const tabs = computed<Array<{ key: TabKey; label: string; count: number }>>(() =
     { key: 'all', label: 'Все мои', count: assigned?.total ?? 0 },
     { key: 'IN_WORK', label: 'В работе', count: assigned?.in_work ?? 0 },
     { key: 'DONE', label: 'Выполнены', count: assigned?.done ?? 0 },
-    { key: 'CLOSED', label: 'Закрыты', count: assigned?.closed ?? 0 },
+    { key: 'CLOSED', label: 'Отклонены', count: assigned?.closed ?? 0 },
   ]
 })
 

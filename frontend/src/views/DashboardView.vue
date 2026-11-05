@@ -36,7 +36,7 @@ const filters = computed(() => [
   { key: 'NEW', label: 'Новые', value: stats.value.new },
   { key: 'IN_WORK', label: 'В работе', value: stats.value.in_work },
   { key: 'DONE', label: 'Выполнены', value: stats.value.done },
-  { key: 'CLOSED', label: 'Закрыты', value: stats.value.closed },
+  { key: 'CLOSED', label: 'Отклонены', value: stats.value.closed },
 ])
 
 async function loadStats() {

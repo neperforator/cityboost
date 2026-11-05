@@ -66,6 +66,7 @@ export interface Ticket {
   latitude?: number | null
   longitude?: number | null
   close_reason?: string | null
+  notify_author?: boolean
   user_id: string
   user_name?: string
   assigned_to?: string | null
@@ -103,6 +104,7 @@ export interface TicketCreatePayload {
   category: string
   latitude?: number | null
   longitude?: number | null
+  notify_author?: boolean
 }
 
 export interface TicketFilters {

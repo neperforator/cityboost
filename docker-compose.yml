@@ -85,6 +85,33 @@ services:
     networks:
       - cityboost-net
 
+  # Изолированный мониторинг с алертами в Telegram.
+  # Удаляется без изменений в backend/frontend: см. ops/health-alert/README.md
+  health-alert:
+    build: ./ops/health-alert
+    container_name: cityboost-health-alert
+    restart: on-failure
+    environment:
+      HEALTH_ALERT_ENABLED: ${HEALTH_ALERT_ENABLED:-true}
+      HEALTH_ALERT_DRY_RUN: ${HEALTH_ALERT_DRY_RUN:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_MESSAGE_THREAD_ID: ${TELEGRAM_MESSAGE_THREAD_ID:-}
+      TELEGRAM_API_BASE: ${TELEGRAM_API_BASE:-https://api.telegram.org}
+      HEALTH_ALERT_INTERVAL_SECONDS: ${HEALTH_ALERT_INTERVAL_SECONDS:-60}
+      HEALTH_ALERT_TIMEOUT_SECONDS: ${HEALTH_ALERT_TIMEOUT_SECONDS:-5}
+      HEALTH_ALERT_FAILURE_THRESHOLD: ${HEALTH_ALERT_FAILURE_THRESHOLD:-2}
+      HEALTH_ALERT_REPEAT_MINUTES: ${HEALTH_ALERT_REPEAT_MINUTES:-30}
+      HEALTH_ALERT_STARTUP_DELAY_SECONDS: ${HEALTH_ALERT_STARTUP_DELAY_SECONDS:-20}
+      HEALTH_ALERT_TIMEZONE: ${HEALTH_ALERT_TIMEZONE:-Europe/Minsk}
+      HEALTH_ALERT_EXTERNAL_URL: ${HEALTH_ALERT_EXTERNAL_URL:-}
+      HEALTH_ALERT_CHECK_DB: ${HEALTH_ALERT_CHECK_DB:-true}
+      HEALTH_ALERT_CHECK_REDIS: ${HEALTH_ALERT_CHECK_REDIS:-true}
+    networks:
+      - cityboost-net
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   cityboost-net:
     driver: bridge

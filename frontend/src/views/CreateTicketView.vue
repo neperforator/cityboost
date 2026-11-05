@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { ticketAPI } from '@/api'
 import { useToast } from '@/composables/useToast'
 import MapPicker from '@/components/MapPicker.vue'
-import { ArrowLeftIcon, PhotoIcon, XMarkIcon, ExclamationCircleIcon, MapPinIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, PhotoIcon, XMarkIcon, ExclamationCircleIcon, MapPinIcon, BellIcon } from '@heroicons/vue/24/outline'
 import { PlusCircleIcon } from '@heroicons/vue/24/solid'
 
 const router = useRouter()
@@ -14,6 +14,7 @@ const title = ref('')
 const description = ref('')
 const address = ref('')
 const coords = ref({ lat: null, lng: null })
+const notifyAuthor = ref(true)
 const loading = ref(false)
 const error = ref('')
 
@@ -148,6 +149,7 @@ async function submit() {
     if (address.value.trim()) fd.append('address', address.value.trim())
     if (coords.value.lat) fd.append('latitude', String(coords.value.lat))
     if (coords.value.lng) fd.append('longitude', String(coords.value.lng))
+    fd.append('notify_author', String(notifyAuthor.value))
     for (const file of selectedFiles.value) {
       fd.append('files', file)
     }
@@ -333,6 +335,27 @@ async function submit() {
               </div>
             </div>
           </div>
+        </section>
+
+        <!-- Notification preference -->
+        <section class="panel p-5 sm:p-6">
+          <label class="flex cursor-pointer items-start gap-3">
+            <input
+              v-model="notifyAuthor"
+              type="checkbox"
+              class="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-primary-600"
+            />
+            <span class="min-w-0">
+              <span class="flex items-center gap-1.5 text-sm font-semibold text-ink dark:text-ink-dark">
+                <BellIcon class="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                Следить за заявкой
+              </span>
+              <span class="mt-1 block text-xs leading-5 text-ink-soft dark:text-ink-dark-soft">
+                Получать на email уведомления об изменениях статуса и новых сообщениях.
+                Можно включить или отключить позже в карточке заявки.
+              </span>
+            </span>
+          </label>
         </section>
 
         <div v-if="error" class="flex items-start gap-2 border-l-4 border-l-red-500 bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">

@@ -78,7 +78,7 @@ const kpis = computed<KpiCard[]>(() => {
       key: 'resolved',
       label: 'Решено за период',
       value: formatNumber(current?.resolved_in_period ?? 0),
-      hint: `из новых закрыто ${current?.resolution_rate ?? 0}%`,
+      hint: `из новых выполнено ${current?.resolution_rate ?? 0}%`,
       icon: CheckCircleIcon,
       tone: 'emerald',
       delta: current?.resolved_delta_pct,
@@ -344,7 +344,7 @@ onMounted(load)
             </div>
             <div class="text-right">
               <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-ink-dark-soft">
-                Доля закрытых из новых
+                Доля выполненных из новых
               </p>
               <p class="font-display text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                 {{ data.summary.resolution_rate }}%

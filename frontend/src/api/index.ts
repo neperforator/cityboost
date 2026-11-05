@@ -194,6 +194,7 @@ export interface TicketAPI {
   list(page?: number, pageSize?: number, status?: string): Promise<PaginatedResponse<Ticket>>
   get(id: string): Promise<Ticket>
   create(formData: FormData): Promise<Ticket>
+  updateNotifications(ticketId: string, notifyAuthor: boolean): Promise<Ticket>
   uploadFile(ticketId: string, file: File): Promise<unknown>
   addComment(ticketId: string, text: string): Promise<TicketComment>
   getStats(): Promise<{ total: number; new: number; in_work: number; done: number; closed: number }>
@@ -211,6 +212,11 @@ export const ticketAPI: TicketAPI = {
   create(formData) {
     return api.post('/tickets', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data)
+  },
+  updateNotifications(ticketId, notifyAuthor) {
+    return api.patch(`/tickets/${ticketId}/notifications`, {
+      notify_author: notifyAuthor,
     }).then(r => r.data)
   },
   uploadFile(ticketId, file) {

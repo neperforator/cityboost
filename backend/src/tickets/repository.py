@@ -59,6 +59,7 @@ class TicketRepository:
         latitude: float | None = None,
         longitude: float | None = None,
         address: str | None = None,
+        notify_author: bool = True,
     ) -> Ticket:
         """Создать новую заявку."""
         ticket = Ticket(
@@ -68,6 +69,7 @@ class TicketRepository:
             latitude=latitude,
             longitude=longitude,
             address=address,
+            notify_author=notify_author,
         )
         db.add(ticket)
         await db.flush()
@@ -392,7 +394,7 @@ class TicketHistoryRepository:
 
 
 class TicketCommentRepository:
-    """Репозиторий для комментариев."""
+    """Репозиторий для сообщений."""
 
     @staticmethod
     async def create(
@@ -401,7 +403,7 @@ class TicketCommentRepository:
         author_id: uuid.UUID,
         comment_text: str,
     ) -> TicketComment:
-        """Создать комментарий."""
+        """Создать сообщение."""
         comment = TicketComment(
             ticket_id=ticket_id,
             author_id=author_id,

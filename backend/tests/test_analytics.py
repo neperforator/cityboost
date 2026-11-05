@@ -136,13 +136,13 @@ class TestAnalytics:
 
         summary = data["summary"]
         assert summary["created_in_period"] == 4
-        assert summary["resolved_in_period"] == 2
-        assert summary["resolved_from_period"] == 2
+        assert summary["resolved_in_period"] == 1
+        assert summary["resolved_from_period"] == 1
         assert summary["open_now"] == 2
         assert summary["overdue_now"] == 0
         assert summary["backlog_start"] == 0
         assert summary["backlog_end"] == 2
-        assert summary["resolution_rate"] == 50.0
+        assert summary["resolution_rate"] == 25.0
         assert summary["avg_resolution_hours"] is not None
         assert summary["median_resolution_hours"] is not None
         assert summary["created_delta_pct"] is None
@@ -158,7 +158,7 @@ class TestAnalytics:
         assert assignee["admin_id"] == str(admin.id)
         assert assignee["name"] == "Админ"
         assert assignee["created_in_period"] == 3
-        assert assignee["resolved_in_period"] == 2
+        assert assignee["resolved_in_period"] == 1
         assert assignee["open_now"] == 1
         assert assignee["overdue"] == 0
         assert assignee["avg_resolution_hours"] is not None
