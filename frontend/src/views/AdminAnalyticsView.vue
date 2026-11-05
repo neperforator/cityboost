@@ -32,8 +32,10 @@ const periods = [7, 30, 90]
 const days = ref(30)
 const data = ref<AdminAnalytics | null>(null)
 const loading = ref(true)
+const refreshing = ref(false)
 const error = ref('')
 const toast = useToast()
+let requestId = 0
 
 const toneClasses: Record<KpiCard['tone'], { icon: string; bar: string }> = {
   primary: { icon: 'text-primary-600 dark:text-primary-300', bar: 'bg-primary-500' },
@@ -164,14 +166,25 @@ function assigneePercent(value: number): number {
 }
 
 async function load() {
-  loading.value = true
+  const current = ++requestId
   error.value = ''
+  if (data.value) {
+    refreshing.value = true
+  } else {
+    loading.value = true
+  }
   try {
-    data.value = await adminAPI.getAnalytics(days.value)
+    const result = await adminAPI.getAnalytics(days.value)
+    if (current !== requestId) return
+    data.value = result
   } catch (err) {
+    if (current !== requestId) return
     error.value = (err as Error).message
   } finally {
-    loading.value = false
+    if (current === requestId) {
+      loading.value = false
+      refreshing.value = false
+    }
   }
 }
 
@@ -218,16 +231,32 @@ onMounted(load)
               {{ period }} дней
             </button>
           </div>
-          <button class="btn-secondary btn-sm" :disabled="loading" @click="refresh">
-            <ArrowPathIcon class="h-4 w-4" :class="{ 'animate-spin': loading }" />
-            Обновить
+          <button
+            class="btn-secondary btn-sm"
+            :disabled="loading || refreshing"
+            @click="refresh"
+          >
+            <ArrowPathIcon
+              class="h-4 w-4"
+              :class="{ 'animate-spin': loading || refreshing }"
+            />
+            {{ refreshing ? 'Обновляем…' : 'Обновить' }}
           </button>
         </div>
       </div>
     </header>
 
+    <div
+      v-if="refreshing"
+      class="mt-4 h-0.5 w-full overflow-hidden bg-line dark:bg-line-dark"
+      role="status"
+      aria-label="Обновление данных"
+    >
+      <div class="progress-slide h-full w-1/3 bg-primary-500 dark:bg-primary-300" />
+    </div>
+
     <Transition name="page" mode="out-in">
-      <div v-if="loading" key="loading" class="mt-6 space-y-5">
+      <div v-if="loading && !data" key="loading" class="mt-6 space-y-5">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div v-for="i in 4" :key="i" class="panel p-5">
             <div class="skeleton h-3 w-24" />
@@ -241,7 +270,7 @@ onMounted(load)
         </div>
       </div>
 
-      <div v-else-if="error" key="error" class="panel mt-6 border-l-4 border-l-red-500 p-6">
+      <div v-else-if="error && !data" key="error" class="panel mt-6 border-l-4 border-l-red-500 p-6">
         <div class="flex items-start gap-3">
           <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
           <div>
@@ -253,6 +282,21 @@ onMounted(load)
       </div>
 
       <div v-else-if="data" key="content" class="mt-6 space-y-5">
+        <div
+          v-if="error"
+          class="panel flex items-start gap-3 border-l-4 border-l-red-500 p-4"
+        >
+          <ExclamationTriangleIcon class="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-ink dark:text-ink-dark">
+              Не удалось обновить данные
+            </p>
+            <p class="mt-0.5 text-xs text-ink-soft dark:text-ink-dark-soft">
+              {{ error }} Показаны последние загруженные значения.
+            </p>
+          </div>
+        </div>
+
         <!-- KPI -->
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div

@@ -222,6 +222,32 @@ export interface AdminAnalytics {
   assignees_total: number
 }
 
+export interface TicketMapPoint {
+  id: string
+  title: string
+  status: TicketStatus
+  latitude: number
+  longitude: number
+  address: string | null
+  assigned_to_name: string | null
+  created_at: string
+}
+
+export interface TicketMapResponse {
+  items: TicketMapPoint[]
+  total: number
+  limit: number
+}
+
+export interface TicketMapFilters {
+  status?: TicketStatus
+  days?: number
+  limit?: number
+  q?: string
+  assignee?: 'all' | 'me' | 'unassigned'
+  overdue?: boolean
+}
+
 // ---- Common ----
 
 export interface PaginatedResponse<T> {

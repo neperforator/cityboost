@@ -8,7 +8,8 @@ import { useUsers } from '@/composables/useUsers'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 import Pagination from '@/components/Pagination.vue'
-import { InboxStackIcon, MagnifyingGlassIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import AdminTicketsMap from '@/components/AdminTicketsMap.vue'
+import { InboxStackIcon, MagnifyingGlassIcon, ExclamationTriangleIcon, XMarkIcon, ListBulletIcon, MapIcon } from '@heroicons/vue/24/outline'
 
 const PAGE_SIZE = 15
 
@@ -21,9 +22,9 @@ const tickets = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const loading = ref(true)
-const statusFilter = ref(
+const statusFilter = ref<TicketStatus | ''>(
   typeof route.query.status === 'string' && ['NEW', 'IN_WORK', 'DONE', 'CLOSED'].includes(route.query.status)
-    ? route.query.status
+    ? (route.query.status as TicketStatus)
     : '',
 )
 const assigneeFilter = ref<'all' | 'me' | 'unassigned'>(
@@ -32,6 +33,7 @@ const assigneeFilter = ref<'all' | 'me' | 'unassigned'>(
     : 'all',
 )
 const overdueFilter = ref(route.query.overdue === '1' || route.query.overdue === 'true')
+const viewMode = ref<'list' | 'map'>(route.query.view === 'map' ? 'map' : 'list')
 const searchInput = ref('')
 const searchQuery = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -46,7 +48,7 @@ const stats = ref({
   closed: 0,
 })
 
-const filters = computed(() => [
+const filters = computed<{ key: TicketStatus | ''; label: string; count: number }[]>(() => [
   { key: '', label: 'Всего', count: stats.value.total },
   { key: 'NEW', label: 'Новые', count: stats.value.new },
   { key: 'IN_WORK', label: 'В работе', count: stats.value.in_work },
@@ -86,35 +88,49 @@ function onPageChange(newPage: number) {
   loadTickets()
 }
 
-function setFilter(status: string) {
+function refreshActiveView() {
+  if (viewMode.value === 'list') loadTickets()
+}
+
+function setFilter(status: TicketStatus | '') {
   statusFilter.value = status
   overdueFilter.value = false
   page.value = 1
   syncQuery()
-  loadTickets()
+  refreshActiveView()
 }
 
 function setAssignee(value: 'all' | 'me' | 'unassigned') {
   assigneeFilter.value = value
   page.value = 1
   syncQuery()
-  loadTickets()
+  refreshActiveView()
 }
 
 function clearOverdue() {
   overdueFilter.value = false
   page.value = 1
   syncQuery()
-  loadTickets()
+  refreshActiveView()
 }
 
 function resetFilters() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchInput.value = ''
+  searchQuery.value = ''
   statusFilter.value = ''
   assigneeFilter.value = 'all'
   overdueFilter.value = false
   page.value = 1
   syncQuery()
-  loadTickets()
+  refreshActiveView()
+}
+
+function setViewMode(mode: 'list' | 'map') {
+  if (viewMode.value === mode) return
+  viewMode.value = mode
+  syncQuery()
+  if (mode === 'list') loadTickets()
 }
 
 function syncQuery() {
@@ -122,6 +138,7 @@ function syncQuery() {
   if (statusFilter.value) query.status = statusFilter.value
   if (assigneeFilter.value !== 'all') query.assignee = assigneeFilter.value
   if (overdueFilter.value) query.overdue = '1'
+  if (viewMode.value === 'map') query.view = 'map'
   router.replace({ query })
 }
 
@@ -130,7 +147,7 @@ function clearSearch() {
   searchInput.value = ''
   searchQuery.value = ''
   page.value = 1
-  loadTickets()
+  refreshActiveView()
 }
 
 watch(searchInput, (value) => {
@@ -140,7 +157,7 @@ watch(searchInput, (value) => {
   searchTimer = setTimeout(() => {
     searchQuery.value = next
     page.value = 1
-    loadTickets()
+    refreshActiveView()
   }, 350)
 })
 
@@ -158,7 +175,7 @@ function formatDate(d: string) {
 
 onMounted(() => {
   loadStats()
-  loadTickets()
+  if (viewMode.value === 'list') loadTickets()
 })
 </script>
 
@@ -171,28 +188,56 @@ onMounted(() => {
           <h1 class="font-display text-3xl font-semibold tracking-tight text-ink dark:text-ink-dark">Все заявки</h1>
           <p class="mt-2 text-sm text-ink-soft dark:text-ink-dark-soft">Очередь обращений и распределение работы службы.</p>
         </div>
-        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-          <div class="relative w-full sm:w-72">
-            <MagnifyingGlassIcon class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft dark:text-ink-dark-soft" />
-            <input
-              v-model="searchInput"
-              type="text"
-              class="form-input pl-9"
-              placeholder="Поиск: заявитель, название, адрес..."
-              aria-label="Поиск заявок"
-              @keydown.esc="clearSearch"
-            />
+        <div class="flex w-full flex-col gap-2 sm:w-auto">
+          <div class="inline-flex self-start border-2 border-line dark:border-line-dark sm:self-end">
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors"
+              :class="viewMode === 'list'
+                ? 'bg-primary-500 text-white'
+                : 'bg-surface text-ink-soft hover:bg-surface-muted dark:bg-surface-dark dark:text-ink-dark-soft dark:hover:bg-surface-dark-muted'"
+              :aria-pressed="viewMode === 'list'"
+              @click="setViewMode('list')"
+            >
+              <ListBulletIcon class="h-4 w-4" />
+              Список
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-1.5 border-l-2 border-line px-3 py-2 text-xs font-semibold transition-colors dark:border-line-dark"
+              :class="viewMode === 'map'
+                ? 'bg-primary-500 text-white'
+                : 'bg-surface text-ink-soft hover:bg-surface-muted dark:bg-surface-dark dark:text-ink-dark-soft dark:hover:bg-surface-dark-muted'"
+              :aria-pressed="viewMode === 'map'"
+              @click="setViewMode('map')"
+            >
+              <MapIcon class="h-4 w-4" />
+              Карта
+            </button>
           </div>
-          <select
-            :value="assigneeFilter"
-            class="form-input sm:w-48"
-            aria-label="Фильтр по исполнителю"
-            @change="setAssignee(($event.target as HTMLSelectElement).value as 'all' | 'me' | 'unassigned')"
-          >
-            <option value="all">Все исполнители</option>
-            <option value="me">На мне</option>
-            <option value="unassigned">Без исполнителя</option>
-          </select>
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div class="relative w-full sm:w-72">
+              <MagnifyingGlassIcon class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft dark:text-ink-dark-soft" />
+              <input
+                v-model="searchInput"
+                type="text"
+                class="form-input pl-9"
+                placeholder="Поиск: заявитель, название, адрес..."
+                aria-label="Поиск заявок"
+                @keydown.esc="clearSearch"
+              />
+            </div>
+            <select
+              :value="assigneeFilter"
+              class="form-input sm:w-48"
+              aria-label="Фильтр по исполнителю"
+              @change="setAssignee(($event.target as HTMLSelectElement).value as 'all' | 'me' | 'unassigned')"
+            >
+              <option value="all">Все исполнители</option>
+              <option value="me">На мне</option>
+              <option value="unassigned">Без исполнителя</option>
+            </select>
+          </div>
         </div>
       </div>
     </header>
@@ -224,7 +269,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <Transition name="page" mode="out-in">
+    <Transition v-if="viewMode === 'list'" name="page" mode="out-in">
       <div v-if="loading" key="loading" class="panel mt-5 overflow-hidden">
         <SkeletonTable :rows="6" :columns="5" />
       </div>
@@ -286,5 +331,15 @@ onMounted(() => {
         />
       </div>
     </Transition>
+
+    <AdminTicketsMap
+      v-else
+      class="mt-5"
+      :status="statusFilter"
+      :search="searchQuery"
+      :assignee="assigneeFilter"
+      :overdue="overdueFilter"
+      @reset="resetFilters"
+    />
   </div>
 </template>

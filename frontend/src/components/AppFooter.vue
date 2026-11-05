@@ -6,7 +6,7 @@
         <span class="font-semibold text-ink dark:text-ink-dark">CityBoost</span>
         <span>городская служба заявок</span>
       </div>
-      <p>© {{ new Date().getFullYear() }} CityBoost</p>
+      <p>© {{ new Date().getFullYear() }} CityBoost. <br /> Все права защищены.</p>
     </div>
   </footer>
 </template>

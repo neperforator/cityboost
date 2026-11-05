@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, TokenResponse, User, AdminActionLog, AdminDashboardStats, AdminAnalytics, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse, Admin2FAResendResponse } from '@/types'
+import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, TokenResponse, User, AdminActionLog, AdminDashboardStats, AdminAnalytics, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse, Admin2FAResendResponse, TicketMapFilters, TicketMapResponse } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -273,6 +273,7 @@ export interface AdminAPI {
   getAuditLogs(params?: AuditLogFilters): Promise<PaginatedResponse<AdminActionLog>>
   getStats(): Promise<{ total: number; new: number; in_work: number; done: number; closed: number }>
   getAnalytics(days?: number): Promise<AdminAnalytics>
+  getTicketMap(params?: TicketMapFilters): Promise<TicketMapResponse>
 }
 
 export const adminAPI: AdminAPI = {
@@ -319,5 +320,15 @@ export const adminAPI: AdminAPI = {
   },
   getAnalytics(days = 30) {
     return api.get(`/admin/analytics?days=${days}`).then(r => r.data)
+  },
+  getTicketMap(params = {}) {
+    const q = new URLSearchParams()
+    if (params.status) q.set('status', params.status)
+    if (params.days) q.set('days', String(params.days))
+    if (params.q) q.set('q', params.q)
+    if (params.assignee && params.assignee !== 'all') q.set('assignee', params.assignee)
+    if (params.overdue) q.set('overdue', 'true')
+    if (params.limit) q.set('limit', String(params.limit))
+    return api.get(`/admin/tickets/map?${q}`).then(r => r.data)
   },
 }

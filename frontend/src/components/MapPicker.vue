@@ -1,17 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import L from 'leaflet'
+import { Marker, type MapMouseEvent } from 'maplibre-gl'
 import { MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
-
-// Fix default Leaflet marker icons (broken after npm build)
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
-
 import { useToast } from '@/composables/useToast'
+import { createMap, DEFAULT_CENTER, DEFAULT_ZOOM, isInVitebsk } from '@/lib/map'
+import type { Map } from 'maplibre-gl'
 
 const props = defineProps({
   modelValue: { type: Object, default: () => ({ lat: null, lng: null }) },
@@ -22,8 +15,9 @@ const emit = defineEmits(['update:modelValue', 'address'])
 const mapContainer = ref<HTMLDivElement | null>(null)
 const address = ref('')
 const geocoding = ref(false)
-let map: L.Map | null = null
-let marker: L.Marker | null = null
+let map: Map | null = null
+let marker: Marker | null = null
+let lastValid: { lat: number; lng: number } | null = null
 
 function formatAddress(data: any): string {
   const a = data?.address || {}
@@ -55,15 +49,35 @@ const nominatimReverse = async (lat: number, lng: number) => {
   }
 }
 
-function onMapClick(e: L.LeafletMouseEvent) {
-  const { lat, lng } = e.latlng
-  if (marker) marker.setLatLng([lat, lng])
-  else marker = L.marker([lat, lng], { draggable: true }).addTo(map!)
+function placeMarker(lat: number, lng: number) {
+  lastValid = { lat, lng }
+  if (marker) {
+    marker.setLngLat([lng, lat])
+    return
+  }
+  marker = new Marker({ color: '#0E5A4A', draggable: true })
+    .setLngLat([lng, lat])
+    .addTo(map!)
   marker.on('dragend', () => {
-    const pos = marker!.getLatLng()
+    const pos = marker!.getLngLat()
+    if (!isInVitebsk(pos.lat, pos.lng)) {
+      useToast().warning('Метку можно ставить только в границах Витебска')
+      if (lastValid) marker!.setLngLat([lastValid.lng, lastValid.lat])
+      return
+    }
+    lastValid = { lat: pos.lat, lng: pos.lng }
     emit('update:modelValue', { lat: pos.lat.toFixed(6), lng: pos.lng.toFixed(6) })
     nominatimReverse(pos.lat, pos.lng)
   })
+}
+
+function onMapClick(e: MapMouseEvent) {
+  const { lat, lng } = e.lngLat
+  if (!isInVitebsk(lat, lng)) {
+    useToast().warning('Метку можно ставить только в границах Витебска')
+    return
+  }
+  placeMarker(lat, lng)
   emit('update:modelValue', { lat: lat.toFixed(6), lng: lng.toFixed(6) })
   nominatimReverse(lat, lng)
 }
@@ -79,8 +93,12 @@ function manualGeocode() {
     if (data.length > 0) {
       const { lat, lon } = data[0]
       const latNum = parseFloat(lat), lngNum = parseFloat(lon)
-      marker ? marker.setLatLng([latNum, lngNum]) : (marker = L.marker([latNum, lngNum], { draggable: true }).addTo(map!))
-      map!.setView([latNum, lngNum], 16)
+      if (!isInVitebsk(latNum, lngNum)) {
+        toast.warning('Выберите адрес в пределах Витебска')
+        return
+      }
+      placeMarker(latNum, lngNum)
+      map!.jumpTo({ center: [lngNum, latNum], zoom: 16 })
       const formatted = formatAddress(data[0])
       address.value = formatted
       emit('update:modelValue', { lat: latNum.toFixed(6), lng: lngNum.toFixed(6) })
@@ -89,37 +107,44 @@ function manualGeocode() {
       toast.warning('Адрес не найден')
     }
   }).catch(() => {
-    const toast = useToast()
     toast.error('Ошибка геокодирования')
   }).finally(() => { geocoding.value = false })
 }
 
 watch(() => props.modelValue, (val: any) => {
   if (val?.lat && val?.lng && map) {
-    map.setView([val.lat, val.lng], 16)
-    if (marker) marker.setLatLng([val.lat, val.lng])
-    else marker = L.marker([val.lat, val.lng], { draggable: true }).addTo(map)
+    const lat = Number(val.lat)
+    const lng = Number(val.lng)
+    if (!isInVitebsk(lat, lng)) return
+    map.jumpTo({ center: [lng, lat], zoom: 16 })
+    placeMarker(lat, lng)
   }
 })
 
 onMounted(() => {
-  map = L.map(mapContainer.value!, { attributionControl: false }).setView([55.1904, 30.2049], 12)
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-  }).addTo(map)
+  map = createMap(mapContainer.value!, {
+    center: DEFAULT_CENTER,
+    zoom: DEFAULT_ZOOM,
+    attributionControl: false,
+  })
 
   map.on('click', onMapClick)
 
   // If initial position set
   if (props.modelValue?.lat && props.modelValue?.lng) {
-    map.setView([props.modelValue.lat, props.modelValue.lng], 16)
-    marker = L.marker([props.modelValue.lat, props.modelValue.lng], { draggable: true }).addTo(map)
+    const lat = Number(props.modelValue.lat)
+    const lng = Number(props.modelValue.lng)
+    if (isInVitebsk(lat, lng)) {
+      map.jumpTo({ center: [lng, lat], zoom: 16 })
+      placeMarker(lat, lng)
+    }
   }
 })
 
 onUnmounted(() => {
   if (map) map.remove()
+  map = null
+  marker = null
 })
 </script>
 
@@ -133,7 +158,7 @@ onUnmounted(() => {
           v-model="address"
           type="text"
           class="form-input pl-9"
-          placeholder="Поиск адреса на карте..."
+          placeholder="Поиск адреса в Витебске..."
           @keyup.enter="manualGeocode"
         />
       </div>

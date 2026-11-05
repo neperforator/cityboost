@@ -122,6 +122,25 @@ class TicketStats(BaseModel):
     closed: int
 
 
+class TicketMapPoint(BaseModel):
+    """Лёгкая точка заявки для карты."""
+    id: uuid.UUID
+    title: str
+    status: TicketStatus
+    latitude: float
+    longitude: float
+    address: str | None = None
+    assigned_to_name: str | None = None
+    created_at: datetime
+
+
+class TicketMapOut(BaseModel):
+    """Ответ с точками заявок для карты."""
+    items: list[TicketMapPoint]
+    total: int
+    limit: int
+
+
 # ---------- TicketFile ----------
 
 class TicketFileOut(BaseModel):

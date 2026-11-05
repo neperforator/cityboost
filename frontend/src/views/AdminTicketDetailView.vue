@@ -9,17 +9,11 @@ import type { TicketStatus } from '@/types'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SkeletonDetail from '@/components/SkeletonDetail.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
-import L from 'leaflet'
+import { Marker, type Map } from 'maplibre-gl'
+import { createMap } from '@/lib/map'
 
 import { ArrowLeftIcon, MapPinIcon, ChatBubbleLeftRightIcon, PhotoIcon, CalendarDaysIcon, CheckCircleIcon, UserCircleIcon, ShieldCheckIcon, ArrowPathIcon, ClipboardDocumentCheckIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { WrenchScrewdriverIcon } from '@heroicons/vue/24/solid'
-
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
 
 const route = useRoute()
 const router = useRouter()
@@ -36,7 +30,7 @@ const history = ref<any[]>([])
 const closeReason = ref('')
 const pendingClose = ref(false)
 const lightboxRef = ref<InstanceType<typeof ImageLightbox> | null>(null)
-let map: L.Map | null = null
+let map: Map | null = null
 
 function openLightbox(files: any[], index: number) {
   const images = files.filter((f: any) => f.mime_type?.startsWith('image/')).map((f: any) => `/storage/${f.file_path}`)
@@ -72,17 +66,23 @@ async function load(silent = false) {
 }
 
 load()
-onUnmounted(() => { if (map) map.remove() })
+onUnmounted(() => {
+  if (map) map.remove()
+  map = null
+})
 watch(ticket, async (val) => {
   if (!val?.latitude || !val?.longitude) return
   await nextTick()
   const container = document.getElementById('admin-ticket-map')
   if (!container || map) return
-  map = L.map(container, { attributionControl: false }).setView([val.latitude, val.longitude], 15)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-  }).addTo(map)
-  L.marker([val.latitude, val.longitude]).addTo(map)
+  map = createMap(container, {
+    center: [val.longitude, val.latitude],
+    zoom: 15,
+    attributionControl: false,
+  })
+  new Marker({ color: '#0E5A4A' })
+    .setLngLat([val.longitude, val.latitude])
+    .addTo(map)
 })
 
 async function changeStatus(status: string) {

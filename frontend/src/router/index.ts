@@ -121,6 +121,12 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes: routes as any,
+  scrollBehavior(_to, _from, savedPosition) {
+    // При переходе по ссылкам открываем страницу с начала; назад/вперёд
+    // возвращаем сохранённую позицию.
+    if (savedPosition) return savedPosition
+    return { top: 0, behavior: 'instant' }
+  },
 })
 
 router.beforeEach((to, from, next) => {

@@ -4,17 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CityBoost — городские заявки</title>
+  <script>
+    // Тема применяется до первой отрисовки, чтобы не было белой вспышки.
+    (function () {
+      try {
+        var stored = localStorage.getItem('theme')
+        var dark =
+          stored === 'dark' ||
+          (stored !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) document.documentElement.classList.add('dark')
+      } catch (e) {}
+    })()
+  </script>
+  <style>
+    html { background-color: #EEF0EC; }
+    html.dark { background-color: #101614; }
+  </style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="apple-touch-icon" sizes="180x180" href="src/components/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="src/components/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="src/components/favicon/favicon-16x16.png">
   <link rel="manifest" href="src/components/favicon/site.webmanifest">
 </head>
 <body class="bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark min-h-screen">
-  <div id="app"></div>
+  <div id="app">
+    <div class="flex min-h-screen items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <div class="flex flex-col items-center gap-4">
+        <div class="h-9 w-9 animate-spin rounded-full border-2 border-line border-t-primary-500 dark:border-line-dark dark:border-t-primary-300"></div>
+        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-ink-soft dark:text-ink-dark-soft">
+          CityBoost
+        </p>
+      </div>
+    </div>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

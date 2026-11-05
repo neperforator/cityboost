@@ -83,6 +83,77 @@ class TestTicketCRUD:
         # Должен быть хотя бы один файл
         assert len(data.get("files", [])) >= 1
 
+    async def test_create_ticket_with_vitebsk_coords(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        token, _ = await _register_and_login(client, db_session, "coords@test.com")
+        data, files = _ticket_post_data()
+        data = {**data, "latitude": "55.1904", "longitude": "30.2049"}
+        r = await client.post(
+            "/api/v1/tickets",
+            data=data,
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 201, r.text
+        body = r.json()
+        assert body["latitude"] == pytest.approx(55.1904)
+        assert body["longitude"] == pytest.approx(30.2049)
+
+    async def test_create_ticket_accepts_vitebsk_outskirts(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        token, _ = await _register_and_login(client, db_session, "outskirts@test.com")
+        data, files = _ticket_post_data()
+        # Северо-западная окраина Витебска — должна приниматься.
+        data = {**data, "latitude": "55.30", "longitude": "30.10"}
+        r = await client.post(
+            "/api/v1/tickets",
+            data=data,
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 201, r.text
+
+    async def test_reject_coords_outside_vitebsk(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        token, _ = await _register_and_login(client, db_session, "moscow@test.com")
+        data, files = _ticket_post_data()
+        # Координаты Москвы — за пределами Витебска.
+        data = {**data, "latitude": "55.75", "longitude": "37.62"}
+        r = await client.post(
+            "/api/v1/tickets",
+            data=data,
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 400, r.text
+        assert "Витебск" in r.json()["error"]
+
+    async def test_reject_partial_coords(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        token, _ = await _register_and_login(client, db_session, "partial@test.com")
+        data, files = _ticket_post_data()
+        data = {**data, "latitude": "55.1904"}
+        r = await client.post(
+            "/api/v1/tickets",
+            data=data,
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 400, r.text
+        assert "вместе" in r.json()["error"]
+
     async def test_list_user_tickets(self, client: AsyncClient, db_session: AsyncSession):
         token, _ = await _register_and_login(client, db_session, "list@test.com")
         data1, files1 = _ticket_post_data()

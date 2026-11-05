@@ -24,6 +24,8 @@ from src.tickets.schemas import (
     TicketCommentCreate,
     TicketCommentOut,
     TicketHistoryOut,
+    TicketMapOut,
+    TicketMapPoint,
     TicketOut,
     TicketOutDetail,
     TicketStats,
@@ -109,6 +111,81 @@ async def admin_ticket_stats(
         done=counts.get("DONE", 0),
         closed=counts.get("CLOSED", 0),
     )
+
+
+@admin_router.get(
+    "/map",
+    response_model=TicketMapOut,
+    summary="Точки заявок для карты (админ)",
+    description="Лёгкий список заявок с координатами. Поддерживает те же фильтры, "
+    "что и список заявок, плюс ограничение количества точек.",
+)
+async def admin_tickets_map(
+    status: TicketStatus | None = Query(None, description="Фильтр по статусу"),
+    days: int | None = Query(
+        None,
+        ge=1,
+        le=3650,
+        description="Только заявки за последние N дней (по умолчанию все)",
+    ),
+    q: str | None = Query(
+        None,
+        max_length=255,
+        description="Поиск по названию, описанию, адресу, заявителю, исполнителю",
+    ),
+    assignee: Literal["me", "unassigned"] | None = Query(
+        None,
+        description="Фильтр по исполнителю: me — на мне, unassigned — без исполнителя",
+    ),
+    overdue: bool = Query(
+        False,
+        description=f"Только просроченные заявки в работе (старше {OVERDUE_DAYS} дней)",
+    ),
+    limit: int = Query(
+        1000,
+        ge=1,
+        le=2000,
+        description="Максимум точек на карте",
+    ),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_user),
+) -> TicketMapOut:
+    """Получить точки заявок с координатами для админской карты."""
+    service = TicketService(db)
+    date_from = (
+        datetime.now(UTC) - timedelta(days=days)
+        if days is not None
+        else None
+    )
+    overdue_before = (
+        datetime.now(UTC) - timedelta(days=OVERDUE_DAYS)
+        if overdue
+        else None
+    )
+    rows, total = await service.repo.list_map_points(
+        db,
+        status=status,
+        date_from=date_from,
+        limit=limit,
+        search=q,
+        assignee_id=admin.id if assignee == "me" else None,
+        unassigned_only=assignee == "unassigned",
+        overdue_before=overdue_before,
+    )
+    items = [
+        TicketMapPoint(
+            id=row.id,
+            title=row.title,
+            status=row.status,
+            latitude=row.latitude,
+            longitude=row.longitude,
+            address=row.address,
+            assigned_to_name=row.assignee_name,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+    return TicketMapOut(items=items, total=total, limit=limit)
 
 
 @admin_router.get(

@@ -5,6 +5,10 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    background-color: theme('colors.canvas.DEFAULT');
+  }
+  html.dark {
+    background-color: theme('colors.canvas.dark');
   }
   body {
     @apply bg-canvas text-ink antialiased dark:bg-canvas-dark dark:text-ink-dark;
@@ -173,6 +177,220 @@
 .page-enter-from,
 .page-leave-to {
   opacity: 0;
+}
+
+/* Переход между страницами: старый экран размонтируется сразу, поэтому
+   прокрутка не успевает «уехать вверх» на глазах. Новый экран мягко
+   проявляется уже с начала страницы. */
+.route-page {
+  animation: route-in 0.15s ease both;
+}
+@keyframes route-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* === REFRESH PROGRESS === */
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+.progress-slide {
+  animation: progress-slide 1.1s ease-in-out infinite;
+}
+
+/* === TICKET MAP === */
+.maplibregl-map {
+  font-family: inherit;
+  background: #e6eae4;
+}
+.dark .maplibregl-map {
+  background: #0d1210;
+}
+/* В тёмной теме инвертируем только полотно карты, DOM-метки остаются цветными. */
+.dark .maplibregl-canvas {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+.maplibregl-ctrl-group {
+  border-radius: 2px;
+  box-shadow: 2px 2px 0 0 rgb(22 32 28 / 0.08);
+}
+.maplibregl-ctrl-group button {
+  background: #ffffff;
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: #d7dcd5;
+}
+.maplibregl-ctrl-group button:hover {
+  background: #f2f4f0;
+}
+.dark .maplibregl-ctrl-group {
+  box-shadow: 2px 2px 0 0 rgb(0 0 0 / 0.3);
+}
+.dark .maplibregl-ctrl-group button {
+  background: #161d1a;
+}
+.dark .maplibregl-ctrl-group button + button {
+  border-top-color: #2a342f;
+}
+.dark .maplibregl-ctrl-group button:hover {
+  background: #1d2621;
+}
+.dark .maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.maplibregl-ctrl-attrib {
+  background: rgb(255 255 255 / 0.82);
+  color: #4a554f;
+}
+.maplibregl-ctrl-attrib a {
+  color: #0e5a4a;
+}
+.dark .maplibregl-ctrl-attrib {
+  background: rgb(22 29 26 / 0.82);
+  color: #a7b2ab;
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: #6ba893;
+}
+.maplibregl-popup-content {
+  border-radius: 2px;
+  border: 2px solid #d7dcd5;
+  background: #ffffff;
+  color: #16201c;
+  padding: 12px 14px;
+  box-shadow: 4px 4px 0 0 rgb(22 32 28 / 0.08);
+}
+.dark .maplibregl-popup-content {
+  border-color: #2a342f;
+  background: #161d1a;
+  color: #e8ece6;
+}
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: #ffffff;
+}
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: #ffffff;
+}
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #ffffff;
+}
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #ffffff;
+}
+.dark .maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: #161d1a;
+}
+.dark .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: #161d1a;
+}
+.dark .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #161d1a;
+}
+.dark .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #161d1a;
+}
+.maplibregl-popup-close-button {
+  color: #4a554f;
+  font-size: 18px;
+  padding: 0 5px;
+}
+.maplibregl-popup-close-button:hover {
+  background: transparent;
+  color: #16201c;
+}
+.dark .maplibregl-popup-close-button {
+  color: #a7b2ab;
+}
+.dark .maplibregl-popup-close-button:hover {
+  color: #e8ece6;
+}
+.ticket-map-tooltip .maplibregl-popup-content {
+  border-width: 1px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.ticket-map-tooltip.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: #ffffff;
+}
+.ticket-map-tooltip.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: #ffffff;
+}
+.dark .ticket-map-tooltip.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: #161d1a;
+}
+.dark .ticket-map-tooltip.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: #161d1a;
+}
+.ticket-map-popup {
+  min-width: 200px;
+}
+.ticket-map-popup__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4a554f;
+}
+.dark .ticket-map-popup__status {
+  color: #a7b2ab;
+}
+.ticket-map-popup__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+}
+.ticket-map-popup__title {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #16201c;
+}
+.dark .ticket-map-popup__title {
+  color: #e8ece6;
+}
+.ticket-map-popup__meta {
+  margin-top: 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.ticket-map-popup__row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+}
+.ticket-map-popup__row dt {
+  color: #4a554f;
+}
+.dark .ticket-map-popup__row dt {
+  color: #a7b2ab;
+}
+.ticket-map-popup__row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #16201c;
+}
+.dark .ticket-map-popup__row dd {
+  color: #e8ece6;
+}
+.ticket-map-popup__link {
+  margin-top: 12px;
+  width: 100%;
 }
 
 /* === REDUCED MOTION === */

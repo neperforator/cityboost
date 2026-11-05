@@ -49,11 +49,11 @@ onUnmounted(() => {
   <div class="min-h-screen bg-canvas dark:bg-canvas-dark md:flex">
     <AppHeader v-if="showHeader()" :dark="dark" @toggle-dark="toggleDark" />
     <div class="flex min-h-screen flex-1 flex-col">
-      <main class="flex-1">
+      <main class="relative flex-1">
         <router-view v-slot="{ Component }">
-          <Transition name="page" mode="out-in">
+          <div :key="route.path" class="route-page">
             <component :is="Component" />
-          </Transition>
+          </div>
         </router-view>
       </main>
       <AppFooter v-if="showHeader()" />

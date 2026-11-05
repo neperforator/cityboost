@@ -10,6 +10,11 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  // MapLibre подгружает worker отдельным файлом, который ломается
+  // при предварительной оптимизации зависимостей Vite в dev-режиме.
+  optimizeDeps: {
+    exclude: ['maplibre-gl'],
+  },
   server: {
     port: 5173,
     proxy: {

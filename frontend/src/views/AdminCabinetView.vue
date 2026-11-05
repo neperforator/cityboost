@@ -97,7 +97,7 @@ const kpis = computed<KpiCard[]>(() => {
       key: 'overdue',
       label: 'Просрочено',
       value: data.value?.overdue ?? 0,
-      hint: 'в работе дольше 5 дней',
+      hint: 'в работе дольше 15 дней',
       icon: ExclamationTriangleIcon,
       tone: 'red',
       to: { path: '/admin/tickets', query: { assignee: 'me', status: 'IN_WORK', overdue: '1' } },

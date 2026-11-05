@@ -12,6 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
 from src.auth.models import User
+from src.tickets.constants import (
+    VITEBSK_LAT_MAX,
+    VITEBSK_LAT_MIN,
+    VITEBSK_LNG_MAX,
+    VITEBSK_LNG_MIN,
+)
 from src.tickets.models import Ticket, TicketComment, TicketFile, TicketHistory, TicketStatus
 
 
@@ -221,6 +227,88 @@ class TicketRepository:
 
         return items, total
 
+    @staticmethod
+    async def list_map_points(
+        db: AsyncSession,
+        status: TicketStatus | None = None,
+        date_from: datetime | None = None,
+        limit: int = 1000,
+        search: str | None = None,
+        assignee_id: uuid.UUID | None = None,
+        unassigned_only: bool = False,
+        overdue_before: datetime | None = None,
+    ) -> tuple[list, int]:
+        """Точки заявок с координатами для карты (без тяжёлых связей)."""
+        conditions = [
+            Ticket.latitude.is_not(None),
+            Ticket.longitude.is_not(None),
+            # На карте показываем только точки в границах Витебска: старые
+            # заявки с координатами других городов не должны попадать на неё.
+            Ticket.latitude.between(VITEBSK_LAT_MIN, VITEBSK_LAT_MAX),
+            Ticket.longitude.between(VITEBSK_LNG_MIN, VITEBSK_LNG_MAX),
+        ]
+        if status is not None:
+            conditions.append(Ticket.status == status)
+        if date_from is not None:
+            conditions.append(Ticket.created_at >= date_from)
+        if assignee_id is not None:
+            conditions.append(Ticket.assigned_to == assignee_id)
+        if unassigned_only:
+            conditions.append(Ticket.assigned_to.is_(None))
+        if overdue_before is not None:
+            conditions.extend([
+                Ticket.status == TicketStatus.IN_WORK,
+                Ticket.created_at < overdue_before,
+            ])
+
+        assignee = aliased(User)
+        query = (
+            select(
+                Ticket.id,
+                Ticket.title,
+                Ticket.status,
+                Ticket.latitude,
+                Ticket.longitude,
+                Ticket.address,
+                Ticket.created_at,
+                assignee.name.label("assignee_name"),
+            )
+            .select_from(Ticket)
+            .outerjoin(assignee, Ticket.assigned_to == assignee.id)
+            .where(*conditions)
+        )
+        count_query = select(func.count()).select_from(Ticket).where(*conditions)
+
+        # Поиск по тем же полям, что и в списке заявок.
+        term = search.strip() if search else ""
+        if term:
+            pattern = f"%{_escape_like(term)}%"
+            requester = aliased(User)
+            query = query.join(requester, Ticket.user_id == requester.id)
+            count_query = (
+                count_query
+                .join(requester, Ticket.user_id == requester.id)
+                .outerjoin(assignee, Ticket.assigned_to == assignee.id)
+            )
+            search_filter = or_(
+                Ticket.title.ilike(pattern, escape="\\"),
+                Ticket.description.ilike(pattern, escape="\\"),
+                Ticket.address.ilike(pattern, escape="\\"),
+                Ticket.close_reason.ilike(pattern, escape="\\"),
+                cast(Ticket.id, Text).ilike(pattern, escape="\\"),
+                requester.name.ilike(pattern, escape="\\"),
+                requester.email.ilike(pattern, escape="\\"),
+                assignee.name.ilike(pattern, escape="\\"),
+                assignee.email.ilike(pattern, escape="\\"),
+            )
+            query = query.where(search_filter)
+            count_query = count_query.where(search_filter)
+
+        total = int(await db.scalar(count_query) or 0)
+
+        query = query.order_by(Ticket.created_at.desc()).limit(limit)
+        rows = (await db.execute(query)).all()
+        return list(rows), total
 
     @staticmethod
     async def get_status_counts(

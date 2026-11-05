@@ -15,6 +15,7 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User, UserRole
 from src.config import settings
 from src.database import get_db
+from src.tickets.constants import is_in_vitebsk
 from src.tickets.models import Ticket, TicketStatus
 from src.tickets.schemas import (
     PaginatedTickets,
@@ -114,6 +115,22 @@ async def create_ticket(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Максимум {settings.MAX_FILES_PER_TICKET} файлов за раз",
+        )
+
+    # Заявки принимаются только в границах Витебска.
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Широта и долгота должны быть указаны вместе",
+        )
+    if (
+        latitude is not None
+        and longitude is not None
+        and not is_in_vitebsk(latitude, longitude)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Заявки принимаются только в границах города Витебска",
         )
 
     # Сначала валидируем все файлы, чтобы не создавать заявку с частичным набором.
