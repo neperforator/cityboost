@@ -67,6 +67,9 @@
            dark:border-line-dark dark:bg-surface-dark dark:text-ink-dark dark:placeholder:text-ink-dark-soft/50
            dark:focus:border-primary-300;
   }
+  .form-input-sm {
+    @apply form-input px-2.5 py-1.5 text-xs;
+  }
   .form-input-error {
     @apply form-input border-red-600 focus:border-red-600 dark:border-red-500 dark:focus:border-red-400;
   }

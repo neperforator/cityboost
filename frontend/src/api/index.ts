@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, TokenResponse, User, AdminActionLog, AdminDashboardStats, AdminAnalytics, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse, Admin2FAResendResponse, TicketMapFilters, TicketMapResponse } from '@/types'
+import type { PaginatedResponse, Ticket, TicketFilters, TicketStatus, TicketStatusChangePayload, LoginResponse, TokenResponse, User, AdminActionLog, AdminDashboardStats, AdminAnalytics, AuditLogFilters, TicketComment, TicketHistoryEntry, VerifyCodeResponse, Admin2FAResendResponse, TicketMapFilters, TicketMapResponse, BulkTicketResult } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -273,6 +273,8 @@ export interface AdminAPI {
   getDashboard(): Promise<AdminDashboardStats>
   getTicket(id: string): Promise<Ticket>
   changeStatus(id: string, status: TicketStatus, closeReason?: string): Promise<Ticket>
+  bulkChangeStatus(ids: string[], status: TicketStatus, closeReason?: string): Promise<BulkTicketResult>
+  bulkAssign(ids: string[]): Promise<BulkTicketResult>
   assign(id: string): Promise<Ticket>
   addComment(id: string, text: string): Promise<TicketComment>
   getHistory(id: string): Promise<TicketHistoryEntry[]>
@@ -303,6 +305,17 @@ export const adminAPI: AdminAPI = {
     const payload: TicketStatusChangePayload = { new_status: status }
     if (closeReason) payload.close_reason = closeReason
     return api.patch(`/admin/tickets/${id}/status`, payload).then(r => r.data)
+  },
+  bulkChangeStatus(ids, status, closeReason) {
+    const payload: TicketStatusChangePayload & { ticket_ids: string[] } = {
+      ticket_ids: ids,
+      new_status: status,
+    }
+    if (closeReason) payload.close_reason = closeReason
+    return api.patch('/admin/tickets/bulk/status', payload).then(r => r.data)
+  },
+  bulkAssign(ids) {
+    return api.patch('/admin/tickets/bulk/assign', { ticket_ids: ids }).then(r => r.data)
   },
   assign(id) {
     return api.patch(`/admin/tickets/${id}/assign`).then(r => r.data)

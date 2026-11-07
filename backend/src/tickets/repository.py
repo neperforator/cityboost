@@ -51,6 +51,21 @@ class TicketRepository:
         return await db.get(Ticket, ticket_id)
 
     @staticmethod
+    async def get_many_with_author(
+        db: AsyncSession,
+        ticket_ids: list[uuid.UUID],
+    ) -> list[Ticket]:
+        """Получить заявки по ID с автором — для массовых операций."""
+        if not ticket_ids:
+            return []
+        result = await db.execute(
+            select(Ticket)
+            .options(selectinload(Ticket.user))
+            .where(Ticket.id.in_(ticket_ids)),
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
     async def create(
         db: AsyncSession,
         user_id: uuid.UUID,

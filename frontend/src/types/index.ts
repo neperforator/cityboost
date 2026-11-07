@@ -77,6 +77,20 @@ export interface Ticket {
   comments?: TicketComment[]
 }
 
+export interface BulkTicketSkip {
+  ticket_id: string
+  title?: string | null
+  reason: string
+}
+
+export interface BulkTicketResult {
+  updated: number
+  skipped: number
+  failed: number
+  errors: Array<{ ticket_id: string; detail: string }>
+  skipped_items: BulkTicketSkip[]
+}
+
 export interface TicketFile {
   id: string
   ticket_id: string

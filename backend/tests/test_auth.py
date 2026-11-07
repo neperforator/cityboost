@@ -72,6 +72,32 @@ class TestLogin:
         })
         assert r.status_code == 401
 
+    async def test_login_accepts_special_use_domain(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        # Демо-аккаунты создаются на домене .local — вход должен их находить,
+        # даже если строгая валидация EmailStr такой домен не пропускает.
+        from src.auth.models import UserRole
+        from src.auth.service import AuthService
+
+        user = User(
+            name="Demo User",
+            email="demo.login@cityboost.local",
+            password_hash=AuthService.hash_password("DemoPass123"),
+            role=UserRole.USER,
+            is_verified=True,
+        )
+        db_session.add(user)
+        await db_session.flush()
+
+        r = await client.post("/api/v1/auth/login", json={
+            "email": "demo.login@cityboost.local", "password": "DemoPass123",
+        })
+        assert r.status_code == 200, r.text
+        assert r.json()["access_token"]
+
 
 class TestProfile:
     async def test_get_me(self, client: AsyncClient, db_session: AsyncSession):

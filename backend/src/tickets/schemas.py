@@ -29,6 +29,56 @@ class TicketStatusChangeRequest(BaseModel):
         return data
 
 
+class BulkTicketStatusRequest(BaseModel):
+    """Массовая смена статуса заявок."""
+    ticket_ids: list[uuid.UUID] = Field(
+        ..., min_length=1, max_length=500,
+        description="Список ID заявок",
+    )
+    new_status: TicketStatus = Field(..., description="Новый статус заявок")
+    close_reason: str | None = Field(
+        None, max_length=1000,
+        description="Причина отклонения (обязательна при статусе CLOSED)",
+    )
+
+    @model_validator(mode="after")
+    @classmethod
+    def validate_close_reason(cls, data):
+        if data.new_status == TicketStatus.CLOSED and not (data.close_reason or "").strip():
+            raise ValueError("Необходимо указать причину отклонения заявок")
+        return data
+
+
+class BulkTicketAssignRequest(BaseModel):
+    """Массовое назначение заявок на текущего администратора."""
+    ticket_ids: list[uuid.UUID] = Field(
+        ..., min_length=1, max_length=500,
+        description="Список ID заявок",
+    )
+
+
+class BulkTicketError(BaseModel):
+    """Ошибка обработки одной заявки в массовой операции."""
+    ticket_id: uuid.UUID
+    detail: str
+
+
+class BulkTicketSkip(BaseModel):
+    """Пропущенная заявка и причина пропуска."""
+    ticket_id: uuid.UUID
+    title: str | None = None
+    reason: str
+
+
+class BulkTicketResult(BaseModel):
+    """Итог массовой операции."""
+    updated: int = 0
+    skipped: int = 0
+    failed: int = 0
+    errors: list[BulkTicketError] = Field(default_factory=list)
+    skipped_items: list[BulkTicketSkip] = Field(default_factory=list)
+
+
 class TicketNotificationUpdate(BaseModel):
     """Включение/выключение email-уведомлений по заявке."""
     notify_author: bool = Field(

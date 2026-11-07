@@ -20,8 +20,13 @@ class UserRegisterRequest(BaseModel):
 
 
 class UserLoginRequest(BaseModel):
-    """Тело запроса на вход."""
-    email: EmailStr = Field(..., description="Электронная почта")
+    """Тело запроса на вход.
+
+    Почта при входе не валидируется как EmailStr: аккаунты могли быть созданы
+    раньше (в том числе демонстрационные на домене .local), и вход должен
+    находить их по точному совпадению, а не отклонять из-за домена.
+    """
+    email: str = Field(..., min_length=3, max_length=320, description="Электронная почта")
     password: str = Field(..., description="Пароль")
 
 

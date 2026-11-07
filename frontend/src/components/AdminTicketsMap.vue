@@ -29,7 +29,7 @@ const STATUS_META: Record<TicketStatus, { color: string; label: string }> = {
   CLOSED: { color: '#6B7280', label: 'Отклонена' },
 }
 
-const MAP_LIMIT = 2000
+const MAP_LIMIT = 20000
 const SOURCE_ID = 'tickets'
 const LAYER_ID = 'tickets-points'
 

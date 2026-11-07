@@ -24,6 +24,11 @@ from src.notifications.tickets import (
 from src.tickets.constants import OVERDUE_DAYS
 from src.tickets.models import TicketStatus
 from src.tickets.schemas import (
+    BulkTicketAssignRequest,
+    BulkTicketError,
+    BulkTicketResult,
+    BulkTicketSkip,
+    BulkTicketStatusRequest,
     PaginatedTickets,
     TicketCommentCreate,
     TicketCommentOut,
@@ -148,7 +153,7 @@ async def admin_tickets_map(
     limit: int = Query(
         1000,
         ge=1,
-        le=2000,
+        le=50000,
         description="Максимум точек на карте",
     ),
     db: AsyncSession = Depends(get_db),
@@ -190,6 +195,201 @@ async def admin_tickets_map(
         for row in rows
     ]
     return TicketMapOut(items=items, total=total, limit=limit)
+
+
+@admin_router.patch(
+    "/bulk/status",
+    response_model=BulkTicketResult,
+    summary="Массовая смена статуса заявок",
+    description="Меняет статус сразу у нескольких заявок. "
+    "При статусе CLOSED требуется указать причину отклонения.",
+)
+async def admin_bulk_change_status(
+    data: BulkTicketStatusRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_user),
+) -> BulkTicketResult:
+    """Массово изменить статус заявок с уведомлением авторов."""
+    service = TicketService(db)
+    ids = list(dict.fromkeys(data.ticket_ids))
+    existing_by_id = {
+        ticket.id: ticket
+        for ticket in await service.get_tickets_with_author(ids)
+    }
+    result = BulkTicketResult()
+
+    for ticket_id in ids:
+        existing = existing_by_id.get(ticket_id)
+        if existing is None:
+            result.failed += 1
+            result.errors.append(
+                BulkTicketError(ticket_id=ticket_id, detail="Заявка не найдена"),
+            )
+            continue
+
+        old_status = existing.status.value if existing.status else None
+        try:
+            ticket = await service.change_status(
+                ticket_id,
+                data.new_status,
+                admin.id,
+                close_reason=data.close_reason,
+            )
+        except ValueError as exc:
+            result.failed += 1
+            result.errors.append(
+                BulkTicketError(ticket_id=ticket_id, detail=str(exc)),
+            )
+            continue
+
+        if ticket is None:
+            result.failed += 1
+            result.errors.append(
+                BulkTicketError(ticket_id=ticket_id, detail="Заявка не найдена"),
+            )
+            continue
+
+        if old_status == ticket.status.value:
+            result.skipped += 1
+            result.skipped_items.append(
+                BulkTicketSkip(
+                    ticket_id=ticket_id,
+                    title=ticket.title,
+                    reason=(
+                        "Уже в статусе "
+                        f"«{_status_label(ticket.status.value)}»"
+                    ),
+                ),
+            )
+            continue
+
+        result.updated += 1
+        details = (
+            f"Массовое изменение: статус заявки «{ticket.title}» "
+            f"изменён на {_status_label(ticket.status.value)}"
+        )
+        if data.new_status == TicketStatus.CLOSED:
+            details += f". Причина: {ticket.close_reason}"
+        await log_admin_action(
+            db, admin.id, "change_ticket_status", "ticket", ticket_id,
+            ticket.title, details,
+        )
+
+        author = existing.user
+        if (
+            author is not None
+            and author.email
+            and author.id != admin.id
+            and ticket.notify_author
+        ):
+            background_tasks.add_task(
+                send_ticket_status_changed,
+                to=author.email,
+                name=author.name,
+                ticket_id=ticket.id,
+                ticket_title=ticket.title,
+                old_status=old_status,
+                new_status=ticket.status.value,
+                close_reason=ticket.close_reason,
+            )
+
+    return result
+
+
+@admin_router.patch(
+    "/bulk/assign",
+    response_model=BulkTicketResult,
+    summary="Массово назначить заявки на себя",
+    description="Назначает несколько заявок на текущего администратора. "
+    "Заявки в статусах DONE и CLOSED пропускаются.",
+)
+async def admin_bulk_assign_tickets(
+    data: BulkTicketAssignRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_user),
+) -> BulkTicketResult:
+    """Массово назначить заявки на текущего администратора."""
+    service = TicketService(db)
+    ids = list(dict.fromkeys(data.ticket_ids))
+    existing_by_id = {
+        ticket.id: ticket
+        for ticket in await service.get_tickets_with_author(ids)
+    }
+    result = BulkTicketResult()
+
+    for ticket_id in ids:
+        existing = existing_by_id.get(ticket_id)
+        if existing is None:
+            result.failed += 1
+            result.errors.append(
+                BulkTicketError(ticket_id=ticket_id, detail="Заявка не найдена"),
+            )
+            continue
+
+        if existing.status in (TicketStatus.DONE, TicketStatus.CLOSED):
+            result.skipped += 1
+            result.skipped_items.append(
+                BulkTicketSkip(
+                    ticket_id=ticket_id,
+                    title=existing.title,
+                    reason=(
+                        "Заявка уже выполнена"
+                        if existing.status == TicketStatus.DONE
+                        else "Заявка отклонена"
+                    ),
+                ),
+            )
+            continue
+        if existing.assigned_to == admin.id and existing.status != TicketStatus.NEW:
+            result.skipped += 1
+            result.skipped_items.append(
+                BulkTicketSkip(
+                    ticket_id=ticket_id,
+                    title=existing.title,
+                    reason="Уже назначена на вас",
+                ),
+            )
+            continue
+
+        old_status = existing.status.value if existing.status else None
+        ticket = await service.assign_ticket(ticket_id, admin.id, admin.name)
+        if ticket is None:
+            result.failed += 1
+            result.errors.append(
+                BulkTicketError(ticket_id=ticket_id, detail="Заявка не найдена"),
+            )
+            continue
+
+        result.updated += 1
+        await log_admin_action(
+            db, admin.id, "assign_ticket", "ticket", ticket_id,
+            ticket.title,
+            f"Массовое назначение: заявка «{ticket.title}» "
+            f"назначена на администратора {admin.name}",
+        )
+
+        author = existing.user
+        if (
+            author is not None
+            and author.email
+            and author.id != admin.id
+            and ticket.notify_author
+            and old_status != ticket.status.value
+        ):
+            background_tasks.add_task(
+                send_ticket_status_changed,
+                to=author.email,
+                name=author.name,
+                ticket_id=ticket.id,
+                ticket_title=ticket.title,
+                old_status=old_status,
+                new_status=ticket.status.value,
+                close_reason=ticket.close_reason,
+            )
+
+    return result
 
 
 @admin_router.get(

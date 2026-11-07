@@ -142,6 +142,13 @@ class TicketService:
         """Получить заявку по ID."""
         return await self.repo.get_by_id(self.db, ticket_id)
 
+    async def get_tickets_with_author(
+        self,
+        ticket_ids: list[uuid.UUID],
+    ) -> list[Ticket]:
+        """Получить заявки по ID вместе с авторами (для массовых операций)."""
+        return await self.repo.get_many_with_author(self.db, ticket_ids)
+
     async def set_notify_author(
         self,
         ticket_id: uuid.UUID,
