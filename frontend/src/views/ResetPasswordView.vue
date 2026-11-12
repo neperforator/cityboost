@@ -2,12 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { authAPI } from '@/api'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import AuthShell from '@/components/AuthShell.vue'
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
 const toast = useToast()
 
 const token = ref('')
@@ -35,6 +37,9 @@ async function handleReset() {
   error.value = ''
   try {
     await authAPI.resetPassword(token.value, password.value)
+    // Сброс пароля инвалидирует все сессии — чистим локальное состояние,
+    // иначе guard уведёт с /login обратно в кабинет со старым токеном.
+    auth.clearAuth()
     success.value = true
     toast.success('Пароль изменён! Войдите с новым паролем.')
     setTimeout(() => router.push('/login'), 1500)

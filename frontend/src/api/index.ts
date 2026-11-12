@@ -119,10 +119,33 @@ api.interceptors.response.use(
 function clearAuthAndRedirect() {
   setAccessToken(null)
   localStorage.removeItem('cityboost_user')
-  // Refresh cookie чистится через API /auth/logout (вызывается из стора)
-  if (!window.location.hash.startsWith('#/login')) {
+  // Refresh cookie чистится через API /auth/logout (вызывается из стора).
+  // Публичные страницы не трогаем: иначе ссылка из письма потеряет ?token=.
+  if (!isPublicRoute()) {
     window.location.hash = '#/login'
   }
+}
+
+// Публичные страницы: 401 на них — норма (сессии ещё нет). Редирект на
+// /login сломал бы, например, ссылку сброса пароля вместе с её токеном.
+const PUBLIC_ROUTES = [
+  '#/login',
+  '#/register',
+  '#/forgot-password',
+  '#/reset-password',
+  '#/verify-email',
+  '#/about',
+  '#/error',
+]
+
+function isPublicRoute(): boolean {
+  const hash = window.location.hash
+  return PUBLIC_ROUTES.some((route) => hash.startsWith(route))
+}
+
+/** Открыта ссылка из письма для сброса пароля (в URL лежит одноразовый токен). */
+export function isResetPasswordLink(): boolean {
+  return window.location.hash.startsWith('#/reset-password')
 }
 
 export default api

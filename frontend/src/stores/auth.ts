@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { authAPI, getAccessToken, setAccessToken } from '@/api'
+import { authAPI, getAccessToken, isResetPasswordLink, setAccessToken } from '@/api'
 import router from '@/router'
 import type { User, VerifyCodeResponse } from '@/types'
 
@@ -77,6 +77,9 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async bootstrap(): Promise<void> {
+      // Ссылка сброса пароля содержит одноразовый токен: не тратим запрос
+      // на refresh и не даём 401-редиректу затереть токен из URL.
+      if (isResetPasswordLink()) return
       // На старте access-токена в памяти нет: восстанавливаем сессию по refresh-cookie.
       if (this.token) {
         await this.fetchMe()
