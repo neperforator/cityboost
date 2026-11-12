@@ -8,6 +8,8 @@ requires-python = ">=3.11"
 # Линтер + форматтер
 line-length = 110
 target-version = "py311"
+# Миграции генерируются Alembic и не следуют стилю проекта.
+extend-exclude = ["alembic/versions"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -6,18 +6,17 @@ Alembic окружение для асинхронных миграций.
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from src.config import settings
-from src.database import Base
 
 # Импорт всех моделей, чтобы Alembic их обнаружил
 import src.auth.models  # noqa: F401
 import src.common.audit  # noqa: F401
 import src.tickets.models  # noqa: F401
+from alembic import context
+from src.config import settings
+from src.database import Base
 
 config = context.config
 

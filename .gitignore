@@ -1,25 +1,38 @@
-# Environment
+# Environment / secrets
 .env
-.env.prod
+.env.*
+!.env.example
 *.local
 .claude/
-scripts/
 opencode/
 
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
-dist/
 *.egg
+dist/
+build/
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # Node
 node_modules/
 frontend/dist/
+.vite/
+storybook-static/
+*.tsbuildinfo
+npm-debug.log*
 
-# IDE
+# IDE / editors
 .idea/
 .vscode/
 *.swp
@@ -28,15 +41,27 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Docker
+# Docker / TLS
 certbot/www/
 certbot/conf/
+*.pem
+*.key
 
 # Storage (user uploads)
 storage/uploads/
 !storage/uploads/.gitkeep
 backend/storage/
 
-# Logs
+# Backups / dumps
+*.bak
+*.backup
+*.dump
+*.sql.gz
+
+# Logs / temp
 *.log
+*.tmp
+tmp/
+temp/
