@@ -24,7 +24,7 @@ const emit = defineEmits<{ reset: [] }>()
 
 const STATUS_META: Record<TicketStatus, { color: string; label: string }> = {
   NEW: { color: '#0E5A4A', label: 'Новая' },
-  IN_WORK: { color: '#E4572E', label: 'В работе' },
+  IN_WORK: { color: '#C2512C', label: 'В работе' },
   DONE: { color: '#059669', label: 'Выполнена' },
   CLOSED: { color: '#6B7280', label: 'Отклонена' },
 }

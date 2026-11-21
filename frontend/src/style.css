@@ -213,7 +213,7 @@
 /* === TICKET MAP === */
 .maplibregl-map {
   font-family: inherit;
-  background: #e6eae4;
+  background: #e9ecef;
 }
 .dark .maplibregl-map {
   background: #0d1210;
@@ -224,16 +224,16 @@
 }
 .maplibregl-ctrl-group {
   border-radius: 2px;
-  box-shadow: 2px 2px 0 0 rgb(22 32 28 / 0.08);
+  box-shadow: 2px 2px 0 0 rgb(27 32 39 / 0.08);
 }
 .maplibregl-ctrl-group button {
   background: #ffffff;
 }
 .maplibregl-ctrl-group button + button {
-  border-top-color: #d7dcd5;
+  border-top-color: #e2e6ea;
 }
 .maplibregl-ctrl-group button:hover {
-  background: #f2f4f0;
+  background: #f2f4f6;
 }
 .dark .maplibregl-ctrl-group {
   box-shadow: 2px 2px 0 0 rgb(0 0 0 / 0.3);
@@ -252,7 +252,7 @@
 }
 .maplibregl-ctrl-attrib {
   background: rgb(255 255 255 / 0.82);
-  color: #4a554f;
+  color: #5a6472;
 }
 .maplibregl-ctrl-attrib a {
   color: #0e5a4a;
@@ -266,11 +266,11 @@
 }
 .maplibregl-popup-content {
   border-radius: 2px;
-  border: 2px solid #d7dcd5;
+  border: 2px solid #e2e6ea;
   background: #ffffff;
-  color: #16201c;
+  color: #1b2027;
   padding: 12px 14px;
-  box-shadow: 4px 4px 0 0 rgb(22 32 28 / 0.08);
+  box-shadow: 4px 4px 0 0 rgb(27 32 39 / 0.08);
 }
 .dark .maplibregl-popup-content {
   border-color: #2a342f;
@@ -302,13 +302,13 @@
   border-left-color: #161d1a;
 }
 .maplibregl-popup-close-button {
-  color: #4a554f;
+  color: #5a6472;
   font-size: 18px;
   padding: 0 5px;
 }
 .maplibregl-popup-close-button:hover {
   background: transparent;
-  color: #16201c;
+  color: #1b2027;
 }
 .dark .maplibregl-popup-close-button {
   color: #a7b2ab;
@@ -346,7 +346,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #4a554f;
+  color: #5a6472;
 }
 .dark .ticket-map-popup__status {
   color: #a7b2ab;
@@ -361,7 +361,7 @@
   font-size: 14px;
   font-weight: 600;
   line-height: 1.3;
-  color: #16201c;
+  color: #1b2027;
 }
 .dark .ticket-map-popup__title {
   color: #e8ece6;
@@ -378,7 +378,7 @@
   gap: 8px;
 }
 .ticket-map-popup__row dt {
-  color: #4a554f;
+  color: #5a6472;
 }
 .dark .ticket-map-popup__row dt {
   color: #a7b2ab;
@@ -386,7 +386,7 @@
 .ticket-map-popup__row dd {
   margin: 0;
   overflow-wrap: anywhere;
-  color: #16201c;
+  color: #1b2027;
 }
 .dark .ticket-map-popup__row dd {
   color: #e8ece6;

@@ -65,3 +65,8 @@ backend/storage/
 *.tmp
 tmp/
 temp/
+
+# Local-only helpers (not part of the deployment)
+docs/
+backend/scripts/
+ops/

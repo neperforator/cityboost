@@ -8,7 +8,6 @@
 - **Backend** — FastAPI, SQLAlchemy 2 (async), Alembic, PostgreSQL, Redis.
 - **Frontend** — Vue 3, TypeScript, Vite, Tailwind CSS, MapLibre.
 - **Инфраструктура** — Docker Compose, nginx (раздача SPA + reverse proxy).
-- **Мониторинг** — изолированный sidecar `ops/health-alert` с алертами в Telegram.
 
 ## Быстрый старт (Docker)
 
@@ -119,31 +118,23 @@ python -m pytest -q
 | `REFRESH_COOKIE_SECURE` | `true` при работе по HTTPS |
 | `SMTP_*` | отправка писем (подтверждение, 2FA) |
 | `ADMIN_2FA_ENABLED` | обязательный код на email для админов |
-| `TELEGRAM_*` | алерты health-alert |
 | `UPLOAD_DIR` | директория загруженных изображений |
 
 ## Production-чеклист
-
-Простая пошаговая инструкция для Ubuntu: **[docs/DEPLOY_UBUNTU.md](docs/DEPLOY_UBUNTU.md)**.
 
 1. **Секреты.** Сгенерируйте `JWT_SECRET_KEY` (32+ случайных символа) и
    сильный `POSTGRES_PASSWORD`. Не используйте значения из `.env.example`.
 2. **Режим.** `DEBUG=false`, `ENABLE_DOCS=false`, `CORS_ORIGINS=https://ваш-домен`.
 3. **HTTPS.** `REFRESH_COOKIE_SECURE=true`. `nginx/default.conf` слушает
-   `:80`; готовый HTTPS-конфиг — `nginx/https.conf.example`. Пошагово
-   (certbot, автопродление) — в гайде по деплою, шаг 7.
+   `:80`; готовый HTTPS-конфиг — `nginx/https.conf.example` (certbot,
+   автопродление настраиваются на сервере).
 4. **Почта.** Настройте `SMTP_*`, иначе регистрация/2FA не смогут отправлять коды.
-5. **Мониторинг.** Заполните `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`
-   (см. `ops/health-alert/README.md`) и проверьте:
-   ```bash
-   docker compose run --rm health-alert python monitor.py --test
-   ```
-6. **Миграции.** Проверьте `alembic upgrade head` перед выкладкой. Откат:
+5. **Миграции.** Проверьте `alembic upgrade head` перед выкладкой. Откат:
    `alembic downgrade -1`.
-7. **Данные.** Тома `pgdata`, `redisdata` и каталог `storage/uploads/` —
+6. **Данные.** Тома `pgdata`, `redisdata` и каталог `storage/uploads/` —
    единственные источники состояния. При пересоздании контейнеров они
    сохраняются; удаляет их только `docker compose down -v`.
-8. **Запуск.**
+7. **Запуск.**
    ```bash
    docker compose up -d --build
    docker compose ps
@@ -156,13 +147,6 @@ python -m pytest -q
 backend/            FastAPI, миграции, тесты
 frontend/           Vue 3 SPA
 nginx/              конфигурация reverse proxy
-ops/health-alert/   мониторинг и Telegram-алерты
-docs/               документация (гайд по деплою)
 storage/            загруженные пользователями файлы (gitignored)
 docker-compose.yml  production-подобная сборка
 ```
-
-## Скрипты
-
-Вспомогательные SQL/Python-скрипты лежат в `backend/scripts/` и не
-подключаются к приложению автоматически.

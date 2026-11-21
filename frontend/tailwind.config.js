@@ -10,29 +10,29 @@ export default {
       colors: {
         // Municipal pine — the service-line colour
         primary: {
-          50: '#E8F1ED',
-          100: '#C9E0D7',
-          200: '#9CC7B8',
-          300: '#6BA893',
-          400: '#3D8871',
+          50: '#EDF4F1',
+          100: '#D8E7E1',
+          200: '#B2D1C5',
+          300: '#7FB29F',
+          400: '#4A8C77',
           500: '#0E5A4A',
           600: '#0B4B3E',
           700: '#093D33',
           800: '#072F27',
           900: '#05211C',
         },
-        // Safety orange — used only for action and attention
+        // Muted terracotta — used only for action and attention
         accent: {
-          50: '#FDECE6',
-          100: '#FAD3C5',
-          200: '#F4A88F',
-          300: '#EE7D5B',
-          400: '#E95F39',
-          500: '#E4572E',
-          600: '#C4431F',
-          700: '#A03519',
-          800: '#7C2913',
-          900: '#5C1E0E',
+          50: '#FCF0EA',
+          100: '#F7DCCF',
+          200: '#EDB9A2',
+          300: '#DE9172',
+          400: '#CF6B47',
+          500: '#C2512C',
+          600: '#A84322',
+          700: '#8A361B',
+          800: '#6C2A15',
+          900: '#512010',
         },
         // Map blue — for location and secondary information
         map: {
@@ -48,23 +48,23 @@ export default {
           900: '#0F2732',
         },
         canvas: {
-          DEFAULT: '#EEF0EC',
+          DEFAULT: '#F5F6F8',
           dark: '#101614',
         },
         surface: {
           DEFAULT: '#FFFFFF',
-          muted: '#F6F7F4',
+          muted: '#F2F4F6',
           dark: '#161D1A',
           'dark-muted': '#1D2521',
         },
         ink: {
-          DEFAULT: '#16201C',
-          soft: '#4A554F',
+          DEFAULT: '#1B2027',
+          soft: '#5A6472',
           dark: '#E8ECE6',
           'dark-soft': '#A7B2AB',
         },
         line: {
-          DEFAULT: '#D7DCD5',
+          DEFAULT: '#E2E6EA',
           dark: '#2A342F',
         },
       },
@@ -80,7 +80,7 @@ export default {
         xl: '12px',
       },
       boxShadow: {
-        panel: '4px 4px 0 0 rgb(22 32 28 / 0.08)',
+        panel: '4px 4px 0 0 rgb(27 32 39 / 0.08)',
         none: 'none',
       },
       keyframes: {
