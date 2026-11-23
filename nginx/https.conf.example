@@ -4,16 +4,22 @@
 # Как использовать (подробно — в гайде по деплою):
 #   1. Замените your-domain.tld на свой домен во всём файле.
 #   2. Выпустите сертификат Let's Encrypt.
-#   3. Скопируйте файл поверх nginx/default.conf и перезапустите nginx.
+#   3. Скопируйте файл поверх nginx/default.conf и выполните
+#      `docker compose restart nginx` (reload шаблон не перечитает).
 #
 # Сертификат должен лежать в ./certbot/conf (монтируется в контейнер как
 # /etc/letsencrypt). Если основной домен другой — поправьте пути ниже.
+#
+# При DEBUG=true entrypoint отключает директивы limit_req автоматически.
 # =============================================================================
 
 # Rate limiting
 limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
 limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
 limit_req_zone $binary_remote_addr zone=register:10m rate=1r/m;
+
+# При срабатывании лимита отдаём честный 429, а не 503.
+limit_req_status 429;
 
 # --- HTTP: только ACME-челлендж и редирект на HTTPS ---
 server {
