@@ -34,6 +34,11 @@ esac
 # а причина будет видна в `docker compose logs nginx`.
 nginx -t
 
-# Docker передаёт сюда CMD образа: nginx -g 'daemon off;'
-exec "$@"
+# Docker может не передать CMD при переопределённом entrypoint,
+# поэтому запускаем nginx сами, если аргументов нет.
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
+
+exec nginx -g 'daemon off;'
 

@@ -86,6 +86,9 @@ services:
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
     entrypoint: ["/bin/sh", "/usr/local/bin/nginx-entrypoint.sh"]
+    # Compose при переопределении entrypoint не передаёт CMD образа,
+    # поэтому команду задаём явно.
+    command: ["nginx", "-g", "daemon off;"]
     depends_on:
       backend:
         condition: service_started
