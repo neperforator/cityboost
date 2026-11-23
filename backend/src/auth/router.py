@@ -121,14 +121,19 @@ async def login(
             detail="Неверный email, пароль или аккаунт заблокирован",
         )
 
-    if not user.is_verified:
+    if not user.is_verified and not settings.email_auth_bypassed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Подтвердите email. Код отправлен на {user.email}",
         )
 
     # Администраторы проходят обязательную проверку кода на email.
-    if user.role == UserRole.ADMIN and settings.ADMIN_2FA_ENABLED:
+    # В DEBUG-режиме с DEBUG_BYPASS_EMAIL_AUTH вход выполняется без кода.
+    if (
+        user.role == UserRole.ADMIN
+        and settings.ADMIN_2FA_ENABLED
+        and not settings.email_auth_bypassed
+    ):
         try:
             challenge_token = await service.create_admin_2fa_challenge(user)
         except RuntimeError as exc:
@@ -202,7 +207,7 @@ async def refresh(
         )
 
     # Забаненный/неподтверждённый пользователь не может обновлять токены.
-    if user.is_banned or not user.is_verified:
+    if user.is_banned or (not user.is_verified and not settings.email_auth_bypassed):
         service.revoke_sessions(user)
         await db.commit()
         _clear_refresh_cookie(response)
@@ -226,6 +231,7 @@ async def refresh(
     if (
         user.role == UserRole.ADMIN
         and settings.ADMIN_2FA_ENABLED
+        and not settings.email_auth_bypassed
         and not two_factor_verified
     ):
         service.revoke_sessions(user)

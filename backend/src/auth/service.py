@@ -242,6 +242,12 @@ class AuthService:
         password_hash = self.hash_password(data.password)
         user = await self.repo.create(self.db, data.name, email, password_hash)
 
+        # DEBUG-режим: не отправляем письмо и сразу считаем аккаунт подтверждённым.
+        if settings.email_auth_bypassed:
+            user.is_verified = True
+            await self.db.flush()
+            return user
+
         # Генерируем код подтверждения: в БД храним только хеш.
         code = self._generate_verification_code()
         now = datetime.now(UTC)
@@ -544,7 +550,11 @@ class AuthService:
         except ValueError:
             return None
         user = await self.repo.get_by_id(self.db, uid)
-        if user is None or user.is_banned or not user.is_verified:
+        if (
+            user is None
+            or user.is_banned
+            or (not user.is_verified and not settings.email_auth_bypassed)
+        ):
             return None
         # Токен должен быть выдан для актуальной версии сессии.
         if payload.get("ver", 0) != user.token_version:

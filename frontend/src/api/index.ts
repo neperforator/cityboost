@@ -153,7 +153,7 @@ export default api
 // ---- Auth ----
 
 export interface AuthAPI {
-  register(name: string, email: string, password: string): Promise<unknown>
+  register(name: string, email: string, password: string): Promise<User>
   login(email: string, password: string): Promise<LoginResponse>
   me(): Promise<User>
   updateProfile(data: Partial<{ name: string; current_password: string; new_password: string }>): Promise<User>

@@ -93,6 +93,16 @@ class Settings(BaseSettings):
     VERIFICATION_MAX_ATTEMPTS: int = 10
     VERIFICATION_RESEND_COOLDOWN_SECONDS: int = 60
 
+    # --- Debug: вход без писем ---
+    # Действует только при DEBUG=true. Новые аккаунты сразу подтверждены,
+    # вход не требует кода из письма, админский 2FA пропускается.
+    DEBUG_BYPASS_EMAIL_AUTH: bool = False
+
+    @property
+    def email_auth_bypassed(self) -> bool:
+        """Обход подтверждения email и 2FA (только в DEBUG)."""
+        return self.DEBUG and self.DEBUG_BYPASS_EMAIL_AUTH
+
     # --- Admin 2FA (код на email) ---
     ADMIN_2FA_ENABLED: bool = True
     ADMIN_2FA_CODE_TTL_MINUTES: int = 10

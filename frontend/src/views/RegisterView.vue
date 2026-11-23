@@ -21,7 +21,12 @@ async function handleRegister() {
   loading.value = true
   error.value = ''
   try {
-    await auth.register(name.value, email.value, password.value)
+    const user = await auth.register(name.value, email.value, password.value)
+    // В DEBUG-режиме с обходом почты аккаунт уже подтверждён — код не нужен.
+    if (user.is_verified) {
+      router.push('/login?registered=1')
+      return
+    }
     router.push('/verify-email?email=' + encodeURIComponent(email.value))
   } catch (err) {
     error.value = (err as Error).message

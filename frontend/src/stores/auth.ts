@@ -53,11 +53,10 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
       }
     },
-    async register(name: string, email: string, password: string): Promise<boolean> {
+    async register(name: string, email: string, password: string): Promise<User> {
       this.loading = true
       try {
-        await authAPI.register(name, email, password)
-        return true
+        return await authAPI.register(name, email, password)
       } catch (err) {
         throw err
       } finally {

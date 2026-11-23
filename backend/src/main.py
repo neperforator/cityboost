@@ -58,6 +58,10 @@ if not settings.DEBUG:
         raise RuntimeError(
             "CORS_ORIGINS не может содержать '*' в production: укажите явные Origin'ы",
         )
+    if settings.DEBUG_BYPASS_EMAIL_AUTH:
+        raise RuntimeError(
+            "DEBUG_BYPASS_EMAIL_AUTH допустим только при DEBUG=true",
+        )
 
 # ---------------------------------------------------------------------------
 # Создание FastAPI приложения

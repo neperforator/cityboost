@@ -34,6 +34,9 @@ onMounted(() => {
   if (route.query.verified) {
     info.value = 'Email подтверждён. Войдите — для администратора потребуется код из письма.'
   }
+  if (route.query.registered) {
+    info.value = 'Аккаунт создан. Войдите, чтобы продолжить.'
+  }
 
   // Переход со страницы подтверждения email: сразу показываем ввод кода.
   const pendingChallenge = sessionStorage.getItem('cityboost_2fa_challenge')

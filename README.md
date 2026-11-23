@@ -113,6 +113,7 @@ python -m pytest -q
 | `REDIS_URL` | Redis для rate limit |
 | `JWT_SECRET_KEY` | секрет подписи токенов, **минимум 32 символа** |
 | `DEBUG` | `true` только локально; в production `false` |
+| `DEBUG_BYPASS_EMAIL_AUTH` | `true` — регистрация и вход без писем (только при `DEBUG=true`) |
 | `ENABLE_DOCS` | Swagger/ReDoc; в production `false` |
 | `CORS_ORIGINS` | явные Origin'ы через запятую, без `*` |
 | `REFRESH_COOKIE_SECURE` | `true` при работе по HTTPS |
