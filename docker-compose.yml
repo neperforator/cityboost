@@ -70,8 +70,12 @@ services:
     container_name: cityboost-nginx
     restart: unless-stopped
     environment:
-      # Тот же DEBUG, что у backend: при true лимиты nginx отключаются.
+      # Тот же DEBUG, что у backend: при true лимиты nginx отключаются,
+      # а docs остаются доступны.
       DEBUG: ${DEBUG:-false}
+      # Дублирует ENABLE_DOCS из backend: если оба флага false, nginx
+      # отдаёт 404 на /docs, /redoc и /openapi.json.
+      ENABLE_DOCS: ${ENABLE_DOCS:-false}
     ports:
       - "80:80"
       - "443:443"

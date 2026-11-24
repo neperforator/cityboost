@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Страница не найдена — CityBoost</title>
+  <script>
+    // Тема — та же, что у приложения: без вспышки светлого экрана.
+    (function () {
+      try {
+        var stored = localStorage.getItem('theme')
+        var dark =
+          stored === 'dark' ||
+          (stored !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) document.documentElement.classList.add('dark')
+      } catch (e) {}
+    })()
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f5f6f8;
+      --surface: #ffffff;
+      --surface-muted: #f2f4f6;
+      --ink: #1b2027;
+      --ink-soft: #5a6472;
+      --line: #e2e6ea;
+      --primary: #0e5a4a;
+      --primary-hover: #0b4b3e;
+      --primary-soft: rgba(14, 90, 74, 0.08);
+      --accent: #c2512c;
+      --shadow: rgba(14, 90, 74, 0.14);
+      --grid: rgba(27, 32, 39, 0.045);
+    }
+
+    html.dark {
+      color-scheme: dark;
+      --canvas: #101614;
+      --surface: #161d1a;
+      --surface-muted: #1d2521;
+      --ink: #e8ece6;
+      --ink-soft: #a7b2ab;
+      --line: #2a342f;
+      --primary: #7fb29f;
+      --primary-hover: #b2d1c5;
+      --primary-soft: rgba(127, 178, 159, 0.12);
+      --accent: #de9172;
+      --shadow: rgba(0, 0, 0, 0.45);
+      --grid: rgba(232, 236, 230, 0.05);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    html {
+      background-color: var(--canvas);
+    }
+
+    body {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background-color: var(--canvas);
+      background-image:
+        radial-gradient(circle at 50% 0%, var(--primary-soft), transparent 46rem),
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: auto, 48px 48px, 48px 48px;
+      color: var(--ink);
+      font-family: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* ── Шапка ── */
+    .site-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px clamp(20px, 5vw, 48px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      flex: none;
+      background-color: var(--primary);
+      color: var(--canvas);
+      border: 2px solid var(--primary);
+      border-radius: 2px;
+    }
+
+    html.dark .brand-mark {
+      color: #101614;
+    }
+
+    .brand-mark svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+    }
+
+    .brand-name {
+      font-family: 'Unbounded', 'Onest', system-ui, sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-tagline {
+      margin-top: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .site-header__meta {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    /* ── Основной блок ── */
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 24px clamp(20px, 5vw, 48px) 56px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background-color: var(--surface);
+      border: 2px solid var(--line);
+      border-radius: 2px;
+      box-shadow: 8px 8px 0 0 var(--shadow);
+      overflow: hidden;
+    }
+
+    .card__head {
+      position: relative;
+      padding: clamp(24px, 5vw, 36px) clamp(24px, 5vw, 36px) 26px;
+      border-bottom: 2px solid var(--line);
+      background:
+        linear-gradient(180deg, var(--primary-soft), transparent 72%),
+        var(--surface);
+    }
+
+    .card__head::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto;
+      height: 4px;
+      background-color: var(--primary);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .code {
+      margin: 14px 0 0;
+      font-family: 'Unbounded', 'Onest', system-ui, sans-serif;
+      font-size: clamp(64px, 16vw, 104px);
+      font-weight: 700;
+      line-height: 0.85;
+      letter-spacing: -0.06em;
+      color: var(--primary);
+    }
+
+    h1 {
+      margin: 18px 0 0;
+      font-family: 'Unbounded', 'Onest', system-ui, sans-serif;
+      font-size: clamp(20px, 4vw, 26px);
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .card__body {
+      padding: clamp(22px, 4vw, 30px) clamp(24px, 5vw, 36px) clamp(26px, 5vw, 34px);
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 42ch;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--ink-soft);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 26px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 10px 18px;
+      border: 2px solid transparent;
+      border-radius: 2px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1;
+      cursor: pointer;
+      transition:
+        background-color 150ms ease,
+        border-color 150ms ease,
+        color 150ms ease;
+    }
+
+    .btn svg {
+      width: 18px;
+      height: 18px;
+      flex: none;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 3px;
+    }
+
+    .btn--primary {
+      background-color: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+    }
+
+    html.dark .btn--primary {
+      color: #101614;
+    }
+
+    .btn--primary:hover {
+      background-color: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+
+    .btn--secondary {
+      background-color: var(--surface);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .btn--secondary:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .hint {
+      margin: 0;
+      max-width: 46ch;
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--ink-soft);
+    }
+
+    /* ── Подвал ── */
+    .site-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 18px clamp(20px, 5vw, 48px) 26px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .site-footer__dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background-color: var(--primary);
+      vertical-align: 1px;
+    }
+
+    @media (max-width: 520px) {
+      .site-header__meta {
+        display: none;
+      }
+
+      .site-footer {
+        justify-content: center;
+        text-align: center;
+      }
+
+      .actions .btn {
+        flex: 1 1 100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="CityBoost — на главную">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Z" />
+          <circle cx="12" cy="10" r="2.4" />
+        </svg>
+      </span>
+      <span class="brand-text">
+        <span class="brand-name">CityBoost</span>
+        <span class="brand-tagline">городские заявки</span>
+      </span>
+    </a>
+    <span class="site-header__meta">Городской сервис</span>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="not-found-title">
+      <div class="card__head">
+        <p class="eyebrow">Ошибка 404</p>
+        <p class="code" aria-hidden="true">404</p>
+        <h1 id="not-found-title">Страница не найдена</h1>
+      </div>
+      <div class="card__body">
+        <p class="lead">
+          Возможно, она была удалена или вы перешли по неверной ссылке.
+          Проверьте адрес или вернитесь на главную.
+        </p>
+        <div class="actions">
+          <a class="btn btn--primary" href="/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m3 10.5 9-7 9 7" />
+              <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+            </svg>
+            На главную
+          </a>
+          <button
+            class="btn btn--secondary"
+            type="button"
+            onclick="if (history.length > 1) { history.back() } else { location.assign('/') }"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 12H5" />
+              <path d="m11 18-6-6 6-6" />
+            </svg>
+            Назад
+          </button>
+        </div>
+      </div>
+    </section>
+    <p class="hint">
+      Если вы уверены, что ссылка верная, обновите страницу или попробуйте позже.
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <span><span class="site-footer__dot" aria-hidden="true"></span>CityBoost · городские заявки</span>
+    <span>Сервис для жителей города</span>
+  </footer>
+</body>
+</html>

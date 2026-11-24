@@ -114,7 +114,7 @@ python -m pytest -q
 | `JWT_SECRET_KEY` | секрет подписи токенов, **минимум 32 символа** |
 | `DEBUG` | `true` только локально; также отключает rate limiting backend и nginx; в production `false` |
 | `DEBUG_BYPASS_EMAIL_AUTH` | `true` — регистрация и вход без писем (только при `DEBUG=true`) |
-| `ENABLE_DOCS` | Swagger/ReDoc; в production `false` |
+| `ENABLE_DOCS` | Swagger/ReDoc; если вместе с `DEBUG=false`, nginx отдаёт на `/docs` и `/openapi.json` брендированный `404`; в production `false` |
 | `CORS_ORIGINS` | явные Origin'ы через запятую, без `*` |
 | `REFRESH_COOKIE_SECURE` | `true` при работе по HTTPS |
 | `SMTP_*` | отправка писем (подтверждение, 2FA) |
@@ -126,6 +126,8 @@ python -m pytest -q
 1. **Секреты.** Сгенерируйте `JWT_SECRET_KEY` (32+ случайных символа) и
    сильный `POSTGRES_PASSWORD`. Не используйте значения из `.env.example`.
 2. **Режим.** `DEBUG=false`, `ENABLE_DOCS=false`, `CORS_ORIGINS=https://ваш-домен`.
+   При таких значениях nginx закрывает `/docs`, `/redoc` и `/openapi.json`
+   обычным `404` с брендированной страницей.
 3. **HTTPS.** `REFRESH_COOKIE_SECURE=true`. `nginx/default.conf` слушает
    `:80`; готовый HTTPS-конфиг — `nginx/https.conf.example` (certbot,
    автопродление настраиваются на сервере).

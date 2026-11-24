@@ -53,6 +53,10 @@ server {
     client_max_body_size 10M;
     charset utf-8;
 
+    # Любая 404 (включая закрытые docs) отдаёт брендированную страницу.
+    # Статус остаётся 404, меняется только оформление.
+    error_page 404 /404.html;
+
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
@@ -74,10 +78,11 @@ server {
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
 
     # ===== Frontend SPA (Vite build) =====
+    # Hash-роутер: реальных путей нет, всё кроме файлов — честный 404.
     location / {
         root /usr/share/nginx/html;
         index index.html;
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ =404;
         add_header Cache-Control "no-cache";
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         add_header X-Content-Type-Options "nosniff" always;
@@ -173,12 +178,8 @@ server {
     }
 
     # ===== API Docs (Swagger/ReDoc) =====
-    location ~ ^/(docs|redoc|openapi\.json)$ {
-        proxy_pass http://backend:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    # Сниппет генерирует entrypoint из DEBUG/ENABLE_DOCS:
+    #   docs включены -> proxy_pass на backend;
+    #   docs выключены -> return 404 с брендированной страницей.
+    include /etc/nginx/snippets/docs.conf;
 }

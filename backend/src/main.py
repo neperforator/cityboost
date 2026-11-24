@@ -73,6 +73,9 @@ app = FastAPI(
     description="API для городских заявок CityBoost — модульный монолит на FastAPI",
     docs_url="/docs" if settings.DOCS_ENABLED else None,
     redoc_url="/redoc" if settings.DOCS_ENABLED else None,
+    # FastAPI по умолчанию всегда отдаёт схему. Закрываем и её, иначе
+    # /openapi.json остаётся доступным даже при выключенных docs.
+    openapi_url="/openapi.json" if settings.DOCS_ENABLED else None,
 )
 
 app.state.debug = settings.DEBUG
