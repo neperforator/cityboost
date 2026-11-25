@@ -38,9 +38,9 @@ const routeStops = [
   { key: 'DONE', label: 'Выполнена' },
 ]
 
-function openLightbox(files: any[], index: number) {
+function openLightbox(files: any[], index: number | string) {
   const images = files.filter((f: any) => f.mime_type?.startsWith('image/')).map((f: any) => `/storage/${f.file_path}`)
-  if (images.length > 0) lightboxRef.value?.open(images, index)
+  if (images.length > 0) lightboxRef.value?.open(images, Number(index))
 }
 
 async function loadTicket(silent = false) {
